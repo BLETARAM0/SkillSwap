@@ -12,9 +12,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Listener for bottom navigation
         BottomNavigationView bottomNav = findViewById(R.id.bottomNavigationView);
 
-        // Listener for bottom navigation
         bottomNav.setOnItemSelectedListener(item -> {
 
             Fragment selectedFragment = null;
@@ -22,16 +22,12 @@ public class MainActivity extends AppCompatActivity {
 
             if (id == R.id.nav_schedule) {
                 selectedFragment = new ScheduleFragment();
-
             } else if (id == R.id.nav_chat) {
                 selectedFragment = new ChatFragment();
-
             } else if (id == R.id.nav_home) {
                 selectedFragment = new HomeFragment();
-
             } else if (id == R.id.nav_settings) {
                 selectedFragment = new SettingsFragment();
-
             } else if (id == R.id.nav_profile) {
                 selectedFragment = new ProfileFragment();
             }
@@ -42,7 +38,9 @@ public class MainActivity extends AppCompatActivity {
                         .replace(R.id.container, selectedFragment)
                         .commit();
             }
+
             return true;
         });
+        bottomNav.setSelectedItemId(R.id.nav_home);
     }
 }
