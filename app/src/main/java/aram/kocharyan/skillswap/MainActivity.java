@@ -42,5 +42,9 @@ public class MainActivity extends AppCompatActivity {
             return true;
         });
         bottomNav.setSelectedItemId(R.id.nav_home);
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.container, new ModeSelectFragment())
+                .commit();
     }
 }
