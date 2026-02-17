@@ -1,6 +1,8 @@
 package aram.kocharyan.skillswap;
 
 import android.os.Bundle;
+import android.view.View;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -11,10 +13,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        // Listener for bottom navigation
         BottomNavigationView bottomNav = findViewById(R.id.bottomNavigationView);
-
+        bottomNav.setVisibility(View.GONE);
+        
         bottomNav.setOnItemSelectedListener(item -> {
 
             Fragment selectedFragment = null;
