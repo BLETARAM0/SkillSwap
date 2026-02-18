@@ -5,10 +5,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
+
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -19,9 +22,8 @@ import java.util.Iterator;
 
 public class OfflineFragment extends Fragment {
 
-    Spinner spinnerCountry, spinnerCity;
-
-    JSONObject countriesObject; // JSON պահում ենք այստեղ
+    private Spinner spinnerCountry, spinnerCity;
+    private JSONObject countriesObject;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -31,12 +33,15 @@ public class OfflineFragment extends Fragment {
 
         spinnerCountry = view.findViewById(R.id.spinnerCountry);
         spinnerCity = view.findViewById(R.id.spinnerCity);
+        Button btnNext = view.findViewById(R.id.btnNext);
 
+        // load countries
         loadCountries();
 
+        // country → city dependent
         spinnerCountry.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
-            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view1, int position, long id) {
                 String selectedCountry = parent.getItemAtPosition(position).toString();
                 loadCities(selectedCountry);
             }
@@ -45,27 +50,34 @@ public class OfflineFragment extends Fragment {
             public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
+        // ✅ NEXT BUTTON — GO TO HOME
+        btnNext.setOnClickListener(v -> {
+
+            // show bottom nav
+            requireActivity()
+                    .findViewById(R.id.bottomNavigationView)
+                    .setVisibility(View.VISIBLE);
+
+            // open home
+            requireActivity()
+                    .getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.container, new HomeFragment())
+                    .commit();
+        });
+
+
         return view;
     }
 
+    // -------- load countries --------
 
-    // =============================
-    // LOAD COUNTRIES FROM JSON
-    // =============================
     private void loadCountries() {
-
         try {
             String jsonString = loadJSONFromAsset();
-
-            if (jsonString == null) {
-                Toast.makeText(getContext(), "JSON NULL", Toast.LENGTH_LONG).show();
-                return;
-            }
-
             countriesObject = new JSONObject(jsonString);
 
             Iterator<String> keys = countriesObject.keys();
-
             ArrayList<String> countryList = new ArrayList<>();
 
             while (keys.hasNext()) {
@@ -82,19 +94,15 @@ public class OfflineFragment extends Fragment {
 
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(getContext(), "COUNTRY ERROR", Toast.LENGTH_LONG).show();
+            Toast.makeText(getContext(), "Country load error", Toast.LENGTH_LONG).show();
         }
     }
 
+    // -------- load cities --------
 
-    // =============================
-    // LOAD CITIES DEPENDING COUNTRY
-    // =============================
     private void loadCities(String country) {
-
         try {
             JSONArray citiesArray = countriesObject.getJSONArray(country);
-
             ArrayList<String> cityList = new ArrayList<>();
 
             for (int i = 0; i < citiesArray.length(); i++) {
@@ -111,35 +119,23 @@ public class OfflineFragment extends Fragment {
 
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(getContext(), "CITY ERROR", Toast.LENGTH_LONG).show();
+            Toast.makeText(getContext(), "City load error", Toast.LENGTH_LONG).show();
         }
     }
 
+    // -------- read JSON from assets --------
 
-    // =============================
-    // READ JSON FROM ASSETS
-    // =============================
     private String loadJSONFromAsset() {
-
-        String json = null;
-
         try {
             InputStream is = requireContext().getAssets().open("countries.json");
-
             int size = is.available();
-
             byte[] buffer = new byte[size];
-
             is.read(buffer);
-
             is.close();
-
-            json = new String(buffer, "UTF-8");
-
+            return new String(buffer, "UTF-8");
         } catch (Exception ex) {
             ex.printStackTrace();
+            return null;
         }
-
-        return json;
     }
 }
