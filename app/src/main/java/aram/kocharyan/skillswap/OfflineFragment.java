@@ -5,18 +5,23 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.Spinner;
+import android.widget.Toast;
+
 import androidx.fragment.app.Fragment;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
-import java.util.HashMap;
-import java.util.Map;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Iterator;
 
 public class OfflineFragment extends Fragment {
 
-    private Spinner spinnerCountry, spinnerCity;
-    private Map<String, String[]> countryCityMap = new HashMap<>();
-    private Button btnNext;
+    Spinner spinnerCountry, spinnerCity;
+
+    JSONObject countriesObject; // JSON պահում ենք այստեղ
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -26,53 +31,115 @@ public class OfflineFragment extends Fragment {
 
         spinnerCountry = view.findViewById(R.id.spinnerCountry);
         spinnerCity = view.findViewById(R.id.spinnerCity);
-        btnNext = view.findViewById(R.id.btnNext);
 
-        // Countries & cities
-        countryCityMap.put("Armenia", new String[]{"Yerevan", "Gyumri", "Vanadzor"});
-        countryCityMap.put("Germany", new String[]{"Berlin", "Munich", "Hamburg"});
-        countryCityMap.put("France", new String[]{"Paris", "Lyon", "Marseille"});
-        countryCityMap.put("USA", new String[]{"New York", "Los Angeles", "Chicago"});
-
-        String[] countries = countryCityMap.keySet().toArray(new String[0]);
-        ArrayAdapter<String> countryAdapter = new ArrayAdapter<>(requireContext(),
-                android.R.layout.simple_spinner_dropdown_item, countries);
-        spinnerCountry.setAdapter(countryAdapter);
-
-        // Set initial cities
-        String firstCountry = countries[0];
-        ArrayAdapter<String> cityAdapter = new ArrayAdapter<>(requireContext(),
-                android.R.layout.simple_spinner_dropdown_item,
-                countryCityMap.get(firstCountry));
-        spinnerCity.setAdapter(cityAdapter);
+        loadCountries();
 
         spinnerCountry.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                String selectedCountry = spinnerCountry.getSelectedItem().toString();
-                ArrayAdapter<String> newCityAdapter = new ArrayAdapter<>(requireContext(),
-                        android.R.layout.simple_spinner_dropdown_item,
-                        countryCityMap.get(selectedCountry));
-                spinnerCity.setAdapter(newCityAdapter);
+                String selectedCountry = parent.getItemAtPosition(position).toString();
+                loadCities(selectedCountry);
             }
 
             @Override
             public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
-        // Next button click → go to HomeFragment & show bottom nav
-        btnNext.setOnClickListener(v -> {
-            // Show bottom nav
-            BottomNavigationView bottomNav = requireActivity().findViewById(R.id.bottomNavigationView);
-            bottomNav.setVisibility(View.VISIBLE);
-
-            // Replace fragment with HomeFragment
-            requireActivity().getSupportFragmentManager()
-                    .beginTransaction()
-                    .replace(R.id.container, new HomeFragment())
-                    .commit();
-        });
-
         return view;
+    }
+
+
+    // =============================
+    // LOAD COUNTRIES FROM JSON
+    // =============================
+    private void loadCountries() {
+
+        try {
+            String jsonString = loadJSONFromAsset();
+
+            if (jsonString == null) {
+                Toast.makeText(getContext(), "JSON NULL", Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            countriesObject = new JSONObject(jsonString);
+
+            Iterator<String> keys = countriesObject.keys();
+
+            ArrayList<String> countryList = new ArrayList<>();
+
+            while (keys.hasNext()) {
+                countryList.add(keys.next());
+            }
+
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                    getContext(),
+                    android.R.layout.simple_spinner_dropdown_item,
+                    countryList
+            );
+
+            spinnerCountry.setAdapter(adapter);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(getContext(), "COUNTRY ERROR", Toast.LENGTH_LONG).show();
+        }
+    }
+
+
+    // =============================
+    // LOAD CITIES DEPENDING COUNTRY
+    // =============================
+    private void loadCities(String country) {
+
+        try {
+            JSONArray citiesArray = countriesObject.getJSONArray(country);
+
+            ArrayList<String> cityList = new ArrayList<>();
+
+            for (int i = 0; i < citiesArray.length(); i++) {
+                cityList.add(citiesArray.getString(i));
+            }
+
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                    getContext(),
+                    android.R.layout.simple_spinner_dropdown_item,
+                    cityList
+            );
+
+            spinnerCity.setAdapter(adapter);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(getContext(), "CITY ERROR", Toast.LENGTH_LONG).show();
+        }
+    }
+
+
+    // =============================
+    // READ JSON FROM ASSETS
+    // =============================
+    private String loadJSONFromAsset() {
+
+        String json = null;
+
+        try {
+            InputStream is = requireContext().getAssets().open("countries.json");
+
+            int size = is.available();
+
+            byte[] buffer = new byte[size];
+
+            is.read(buffer);
+
+            is.close();
+
+            json = new String(buffer, "UTF-8");
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+
+        return json;
     }
 }
