@@ -7,28 +7,38 @@
     android:gravity="center"
     android:padding="24dp">
 
-    <!-- Question: Where do you live? -->
+    <!-- Question: What you can teach? -->
     <TextView
-        android:id="@+id/tvWhereQuestion"
+        android:id="@+id/tvTeachQuestion"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Where do you live?"
+        android:text="What can you teach?"
         android:textSize="18sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp"/>
+        android:textStyle="bold"/>
 
-    <!-- Country Spinner -->
+    <!-- Teach Spinner -->
     <Spinner
-        android:id="@+id/spinnerCountry"
-        android:layout_width="200dp"
-        android:layout_height="wrap_content"/>
-
-    <!-- City Spinner -->
-    <Spinner
-        android:id="@+id/spinnerCity"
+        android:id="@+id/spinnerTeach"
         android:layout_width="200dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="8dp"/>
+
+    <!-- Question: What you want to study? -->
+    <TextView
+        android:id="@+id/tvLearnQuestion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="What do you want to study?"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="24dp"/>
+
+    <!-- Learn Spinner -->
+    <Spinner
+        android:id="@+id/spinnerLearn"
+        android:layout_width="200dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"/>
 
     <!-- Next Button -->
     <Button

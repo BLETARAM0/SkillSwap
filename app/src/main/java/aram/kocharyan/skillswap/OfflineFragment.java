@@ -50,22 +50,14 @@ public class OfflineFragment extends Fragment {
             public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
-        // ✅ NEXT BUTTON — GO TO HOME
         btnNext.setOnClickListener(v -> {
-
-            // show bottom nav
-            requireActivity()
-                    .findViewById(R.id.bottomNavigationView)
-                    .setVisibility(View.VISIBLE);
-
-            // open home
+            // Offline ընտրեց → գնալ SkillsSelectFragment
             requireActivity()
                     .getSupportFragmentManager()
                     .beginTransaction()
-                    .replace(R.id.container, new HomeFragment())
+                    .replace(R.id.container, new SkillsSelectFragment())
                     .commit();
         });
-
 
         return view;
     }

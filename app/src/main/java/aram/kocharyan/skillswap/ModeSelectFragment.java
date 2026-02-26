@@ -20,10 +20,11 @@ public class ModeSelectFragment extends Fragment {
         Button btnOffline = view.findViewById(R.id.btnOffline);
 
         btnOnline.setOnClickListener(v -> {
-            // Online ընտրեց → գնալ HomeFragment
-            getParentFragmentManager()
+            // Online ընտրեց → գնալ SkillsSelectFragment
+            requireActivity()
+                    .getSupportFragmentManager()
                     .beginTransaction()
-                    .replace(R.id.container, new HomeFragment())
+                    .replace(R.id.container, new SkillsSelectFragment())
                     .commit();
         });
 
