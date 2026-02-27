@@ -39,12 +39,23 @@ public class SkillsSelectFragment extends Fragment {
 
         btnNext.setOnClickListener(v -> {
 
-            // show bottom nav
+            String teach = spinnerTeach.getSelectedItem().toString();
+            String learn = spinnerLearn.getSelectedItem().toString();
+
+            // ❌ Չթողնել նույն skill-ը
+            if (teach.equals(learn)) {
+                Toast.makeText(getContext(),
+                        "You cannot select the same skill for both.",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // ✅ show bottom nav
             requireActivity()
                     .findViewById(R.id.bottomNavigationView)
                     .setVisibility(View.VISIBLE);
 
-            // open Home
+            // ✅ open Home
             requireActivity()
                     .getSupportFragmentManager()
                     .beginTransaction()
