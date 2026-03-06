@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "922573853488",
+    "project_id": "askillswap",
+    "storage_bucket": "askillswap.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:922573853488:android:0b4768cb5b37e184b2eef5",
+        "android_client_info": {
+          "package_name": "aram.kocharyan.skillswap"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCos45UW7YFx4kRD8iEfk4D52YGP7wbzYk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
