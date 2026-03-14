@@ -1,6 +1,5 @@
 package aram.kocharyan.skillswap;
 
-import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
@@ -14,10 +13,9 @@ import com.google.firebase.auth.FirebaseAuth;
 public class Login extends AppCompatActivity {
 
     private EditText etEmail, etPassword;
-    private Button btnLogin;
+    private Button btnLogin, btnGoRegister;
     private FirebaseAuth auth;
 
-    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -28,36 +26,37 @@ public class Login extends AppCompatActivity {
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
         btnLogin = findViewById(R.id.btnLogin);
+        btnGoRegister = findViewById(R.id.btnGoRegister);
 
         btnLogin.setOnClickListener(v -> {
 
             String email = etEmail.getText().toString().trim();
             String password = etPassword.getText().toString().trim();
 
-            if(email.isEmpty() || password.isEmpty()){
-                Toast.makeText(this, "Fill all fields", Toast.LENGTH_SHORT).show();
+            if (email.isEmpty() || password.isEmpty()) {
+                Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
                 return;
             }
 
             auth.signInWithEmailAndPassword(email, password)
                     .addOnCompleteListener(task -> {
-                        if(task.isSuccessful()){
-                            Toast.makeText(this, "Login Successful", Toast.LENGTH_SHORT).show();
+                        if (task.isSuccessful()) {
+                            Toast.makeText(this, "Login successful ✅", Toast.LENGTH_SHORT).show();
                             Intent intent = new Intent(this, MainActivity.class);
-                            intent.putExtra("open", "home");
+                            // No extra → goes directly to Home
                             startActivity(intent);
                             finish();
                         } else {
                             Toast.makeText(this,
-                                    task.getException().getMessage(),
+                                    "Error: " + task.getException().getMessage(),
                                     Toast.LENGTH_LONG).show();
                         }
                     });
         });
-        Button btnGoRegister = findViewById(R.id.btnGoRegister);
 
         btnGoRegister.setOnClickListener(v -> {
             startActivity(new Intent(this, Register.class));
+            finish();
         });
     }
 }

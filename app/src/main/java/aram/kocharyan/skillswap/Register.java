@@ -28,7 +28,7 @@ public class Register extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
         database = FirebaseDatabase.getInstance().getReference("Users");
 
-        // Привязка полей
+        // Binding fields
         etName = findViewById(R.id.etName);
         etSurname = findViewById(R.id.etSurname);
         etEmail = findViewById(R.id.etEmail);
@@ -36,10 +36,10 @@ public class Register extends AppCompatActivity {
         btnRegister = findViewById(R.id.btnRegister);
         btnGoLogin = findViewById(R.id.btnGoLogin);
 
-        // Кнопка регистрации
+        // Register button
         btnRegister.setOnClickListener(v -> registerUser());
 
-        // Кнопка "Уже есть аккаунт"
+        // "Already have an account" button
         btnGoLogin.setOnClickListener(v -> {
             startActivity(new Intent(this, Login.class));
             finish();
@@ -53,12 +53,25 @@ public class Register extends AppCompatActivity {
         String password = etPassword.getText().toString().trim();
 
         if (name.isEmpty() || surname.isEmpty() || email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, "Заполните все поля", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        if (password.length() < 6) {
-            Toast.makeText(this, "Пароль должен быть минимум 6 символов", Toast.LENGTH_SHORT).show();
+        // Password validation: min 8 chars, 1 uppercase, 1 lowercase, 1 digit
+        if (password.length() < 8) {
+            Toast.makeText(this, "Password must be at least 8 characters", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!password.matches(".*[A-Z].*")) {
+            Toast.makeText(this, "Password must contain at least one uppercase letter", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!password.matches(".*[a-z].*")) {
+            Toast.makeText(this, "Password must contain at least one lowercase letter", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!password.matches(".*\\d.*")) {
+            Toast.makeText(this, "Password must contain at least one digit", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -68,14 +81,13 @@ public class Register extends AppCompatActivity {
 
                         String userId = auth.getCurrentUser().getUid();
 
-                        // Сохраняем пользователя в базу
-                        AppUser user = new AppUser(name, surname, email, "", "");
+                        // Save user to database (password not stored in DB for security)
+                        AppUser user = new AppUser(name, surname, email, "", "", "", "", "");
                         database.child(userId).setValue(user);
 
-                        Toast.makeText(this, "Регистрация успешна! ✅", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Registration successful! ✅", Toast.LENGTH_SHORT).show();
 
-                        // ←←← ВОТ ГЛАВНОЕ ИЗМЕНЕНИЕ ←←←
-                        // Переходим сразу в экран выбора режима (ModeSelectFragment)
+                        // Go to mode selection
                         Intent intent = new Intent(Register.this, MainActivity.class);
                         intent.putExtra("show_mode_select", true);
                         startActivity(intent);
@@ -83,7 +95,7 @@ public class Register extends AppCompatActivity {
 
                     } else {
                         Toast.makeText(this,
-                                "Ошибка: " + task.getException().getMessage(),
+                                "Error: " + task.getException().getMessage(),
                                 Toast.LENGTH_LONG).show();
                     }
                 });

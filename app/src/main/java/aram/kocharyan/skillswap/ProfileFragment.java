@@ -22,7 +22,7 @@ public class ProfileFragment extends Fragment {
 
         View view = inflater.inflate(R.layout.fragment_profile, container, false);
 
-        // գտնում ենք view-ները
+        // Bind views
         tvName = view.findViewById(R.id.tvName);
         tvEmail = view.findViewById(R.id.tvEmail);
         tvTeach = view.findViewById(R.id.tvTeach);

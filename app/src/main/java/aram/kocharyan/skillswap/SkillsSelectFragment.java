@@ -11,9 +11,14 @@ import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+
 public class SkillsSelectFragment extends Fragment {
 
-    private Spinner spinnerTeach, spinnerLearn;
+    private Spinner spTeach, spStudy;
+    private Button btnNext;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -21,46 +26,57 @@ public class SkillsSelectFragment extends Fragment {
 
         View view = inflater.inflate(R.layout.fragment_skills_select, container, false);
 
-        spinnerTeach = view.findViewById(R.id.spinnerTeach);
-        spinnerLearn = view.findViewById(R.id.spinnerLearn);
-        Button btnNext = view.findViewById(R.id.btnNext);
+        spTeach = view.findViewById(R.id.spTeach);
+        spStudy = view.findViewById(R.id.spStudy);
+        btnNext = view.findViewById(R.id.btnNext);
 
-        // Sample skills
-        String[] skills = {"Math", "English", "Physics", "Programming"};
+        // Sample skills (expanded)
+        String[] skills = {"Programming", "Design", "English", "Math", "Music", "Guitar", "Cooking", "Physics"};
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                getContext(),
+                requireContext(),
                 android.R.layout.simple_spinner_dropdown_item,
                 skills
         );
 
-        spinnerTeach.setAdapter(adapter);
-        spinnerLearn.setAdapter(adapter);
+        spTeach.setAdapter(adapter);
+        spStudy.setAdapter(adapter);
 
         btnNext.setOnClickListener(v -> {
 
-            String teach = spinnerTeach.getSelectedItem().toString();
-            String learn = spinnerLearn.getSelectedItem().toString();
+            String teach = spTeach.getSelectedItem().toString();
+            String study = spStudy.getSelectedItem().toString();
 
-            // ❌ Չթողնել նույն skill-ը
-            if (teach.equals(learn)) {
-                Toast.makeText(getContext(),
+            if (teach.equals(study)) {
+                Toast.makeText(requireContext(),
                         "You cannot select the same skill for both.",
                         Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // ✅ show bottom nav
-            requireActivity()
-                    .findViewById(R.id.bottomNavigationView)
-                    .setVisibility(View.VISIBLE);
+            // Save to Firebase
+            String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+            DatabaseReference db = FirebaseDatabase.getInstance().getReference("Users").child(userId);
+            db.child("skillTeach").setValue(teach);
+            db.child("skillStudy").setValue(study)
+                    .addOnSuccessListener(aVoid -> {
+                        Toast.makeText(requireContext(), "Skills saved ✅", Toast.LENGTH_SHORT).show();
 
-            // ✅ open Home
-            requireActivity()
-                    .getSupportFragmentManager()
-                    .beginTransaction()
-                    .replace(R.id.container, new HomeFragment())
-                    .commit();
+                        // Show bottom nav
+                        requireActivity()
+                                .findViewById(R.id.bottomNavigationView)
+                                .setVisibility(View.VISIBLE);
+
+                        // Open Home
+                        requireActivity()
+                                .getSupportFragmentManager()
+                                .beginTransaction()
+                                .replace(R.id.container, new HomeFragment())
+                                .commit();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(requireContext(), "Error saving skills", Toast.LENGTH_SHORT).show();
+                    });
         });
 
         return view;

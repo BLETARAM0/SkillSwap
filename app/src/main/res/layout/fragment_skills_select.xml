@@ -18,7 +18,7 @@
 
     <!-- Teach Spinner -->
     <Spinner
-        android:id="@+id/spinnerTeach"
+        android:id="@+id/spTeach"
         android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"/>
@@ -35,7 +35,7 @@
 
     <!-- Learn Spinner -->
     <Spinner
-        android:id="@+id/spinnerLearn"
+        android:id="@+id/spStudy"
         android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"/>
