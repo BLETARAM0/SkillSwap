@@ -15,11 +15,7 @@ import android.widget.Toast;
 import androidx.fragment.app.Fragment;
 
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -33,15 +29,16 @@ public class SettingsFragment extends Fragment {
     private Spinner spTeach, spStudy, spinnerCountry, spinnerCity;
     private RadioGroup radioGroupMode;
     private RadioButton radioOnline, radioOffline;
-    private LinearLayout layoutLocation; // For country/city visibility
+    private LinearLayout layoutLocation;
     private Button btnSave;
     private JSONObject countriesObject;
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+
         View view = inflater.inflate(R.layout.fragment_settings, container, false);
 
-        // Bind elements
         spTeach = view.findViewById(R.id.spTeach);
         spStudy = view.findViewById(R.id.spStudy);
         radioGroupMode = view.findViewById(R.id.radioGroupMode);
@@ -52,121 +49,97 @@ public class SettingsFragment extends Fragment {
         spinnerCity = view.findViewById(R.id.spinnerCity);
         btnSave = view.findViewById(R.id.btnSave);
 
-        // Skills spinner
+        // Skills
         String[] skills = {"Programming", "Design", "English", "Math", "Music", "Guitar", "Cooking", "Photo"};
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_spinner_item, skills);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spTeach.setAdapter(adapter);
+        spStudy.setAdapter(adapter);
 
-        ArrayAdapter<String> skillsAdapter = new ArrayAdapter<>(
-                requireContext(),
-                android.R.layout.simple_spinner_item,
-                skills
-        );
-        skillsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-
-        spTeach.setAdapter(skillsAdapter);
-        spStudy.setAdapter(skillsAdapter);
-
-        // Load countries for location
         loadCountries();
 
-        // Country → city dependent
         spinnerCountry.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
-            public void onItemSelected(android.widget.AdapterView<?> parent, View view1, int position, long id) {
-                String selectedCountry = parent.getItemAtPosition(position).toString();
-                loadCities(selectedCountry);
+            public void onItemSelected(android.widget.AdapterView<?> parent, View v, int pos, long id) {
+                loadCities(parent.getItemAtPosition(pos).toString());
             }
 
             @Override
-            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {
+            }
         });
 
-        // Mode change listener to show/hide location
-        radioGroupMode.setOnCheckedChangeListener((group, checkedId) -> {
-            layoutLocation.setVisibility(checkedId == R.id.radioOffline ? View.VISIBLE : View.GONE);
-        });
+        radioGroupMode.setOnCheckedChangeListener((group, checkedId) ->
+                layoutLocation.setVisibility(checkedId == R.id.radioOffline ? View.VISIBLE : View.GONE));
 
-        // Load current data from Firebase
+        // Load current user data
         String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        DatabaseReference db = FirebaseDatabase.getInstance().getReference("Users").child(userId);
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-        db.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                AppUser user = snapshot.getValue(AppUser.class);
-                if (user != null) {
-                    // Set skills
-                    int teachPos = skillsAdapter.getPosition(user.skillTeach);
-                    int studyPos = skillsAdapter.getPosition(user.skillStudy);
-                    if (teachPos >= 0) spTeach.setSelection(teachPos);
-                    if (studyPos >= 0) spStudy.setSelection(studyPos);
+        db.collection("Users").document(userId)
+                .get()
+                .addOnSuccessListener(document -> {
+                    if (document.exists()) {
+                        String mode = document.getString("mode");
+                        String teach = document.getString("skillTeach");
+                        String study = document.getString("skillStudy");
+                        String country = document.getString("country");
+                        String city = document.getString("city");
 
-                    // Set mode
-                    if ("offline".equals(user.mode)) {
-                        radioOffline.setChecked(true);
-                        layoutLocation.setVisibility(View.VISIBLE);
-                        // Set country and city
-                        int countryPos = ((ArrayAdapter<String>) spinnerCountry.getAdapter()).getPosition(user.country);
-                        if (countryPos >= 0) {
-                            spinnerCountry.setSelection(countryPos);
-                            // Load cities and set city
-                            loadCities(user.country);
-                            int cityPos = ((ArrayAdapter<String>) spinnerCity.getAdapter()).getPosition(user.city);
-                            if (cityPos >= 0) spinnerCity.setSelection(cityPos);
+                        if (teach != null) spTeach.setSelection(adapter.getPosition(teach));
+                        if (study != null) spStudy.setSelection(adapter.getPosition(study));
+
+                        if ("offline".equals(mode)) {
+                            radioOffline.setChecked(true);
+                            layoutLocation.setVisibility(View.VISIBLE);
+                            if (country != null) {
+                                int pos = ((ArrayAdapter<String>) spinnerCountry.getAdapter()).getPosition(country);
+                                if (pos >= 0) spinnerCountry.setSelection(pos);
+                                loadCities(country);
+                                if (city != null) {
+                                    int cityPos = ((ArrayAdapter<String>) spinnerCity.getAdapter()).getPosition(city);
+                                    if (cityPos >= 0) spinnerCity.setSelection(cityPos);
+                                }
+                            }
+                        } else {
+                            radioOnline.setChecked(true);
                         }
-                    } else {
-                        radioOnline.setChecked(true);
-                        layoutLocation.setVisibility(View.GONE);
                     }
-                }
-            }
+                });
 
-            @Override
-            public void onCancelled(DatabaseError error) {
-                Toast.makeText(requireContext(), "Error loading settings", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        // Save button
         btnSave.setOnClickListener(v -> {
             String teach = spTeach.getSelectedItem().toString();
             String study = spStudy.getSelectedItem().toString();
             String mode = radioOnline.isChecked() ? "online" : "offline";
-            String country = mode.equals("offline") ? (spinnerCountry.getSelectedItem() != null ? spinnerCountry.getSelectedItem().toString() : "") : "";
-            String city = mode.equals("offline") ? (spinnerCity.getSelectedItem() != null ? spinnerCity.getSelectedItem().toString() : "") : "";
+            String country = mode.equals("offline") ? spinnerCountry.getSelectedItem().toString() : "";
+            String city = mode.equals("offline") ? spinnerCity.getSelectedItem().toString() : "";
 
             if (teach.equals(study)) {
                 Toast.makeText(requireContext(), "Skills should not match", Toast.LENGTH_SHORT).show();
                 return;
             }
             if (mode.equals("offline") && (country.isEmpty() || city.isEmpty())) {
-                Toast.makeText(requireContext(), "Please select country and city for offline mode", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "Please select country and city", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Check authorization
-            if (FirebaseAuth.getInstance().getCurrentUser() == null) {
-                Toast.makeText(requireContext(), "Log in first", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            DatabaseReference database = FirebaseDatabase.getInstance().getReference("Users").child(userId);
-
-            database.child("skillTeach").setValue(teach);
-            database.child("skillStudy").setValue(study);
-            database.child("mode").setValue(mode);
-            database.child("country").setValue(country);
-            database.child("city").setValue(city)
+            db.collection("Users").document(userId)
+                    .update("skillTeach", teach,
+                            "skillStudy", study,
+                            "mode", mode,
+                            "country", country,
+                            "city", city)
                     .addOnSuccessListener(aVoid ->
                             Toast.makeText(requireContext(), "Settings updated ✅", Toast.LENGTH_SHORT).show())
                     .addOnFailureListener(e ->
-                            Toast.makeText(requireContext(), "Error saving settings", Toast.LENGTH_SHORT).show());
+                            Toast.makeText(requireContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
         });
 
         return view;
     }
 
-    // -------- Load countries -------- (copied from OfflineFragment)
-
+    // ================== JSON methods (точно такие же) ==================
     private void loadCountries() {
         try {
             String jsonString = loadJSONFromAsset();
@@ -193,8 +166,6 @@ public class SettingsFragment extends Fragment {
         }
     }
 
-    // -------- Load cities --------
-
     private void loadCities(String country) {
         try {
             JSONArray citiesArray = countriesObject.getJSONArray(country);
@@ -217,8 +188,6 @@ public class SettingsFragment extends Fragment {
             Toast.makeText(requireContext(), "Error loading cities", Toast.LENGTH_LONG).show();
         }
     }
-
-    // -------- Read JSON from assets --------
 
     private String loadJSONFromAsset() {
         try {

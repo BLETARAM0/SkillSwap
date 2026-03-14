@@ -12,8 +12,7 @@ import android.widget.Toast;
 import androidx.fragment.app.Fragment;
 
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -37,15 +36,12 @@ public class OfflineFragment extends Fragment {
         spinnerCity = view.findViewById(R.id.spinnerCity);
         Button btnNext = view.findViewById(R.id.btnNext);
 
-        // Load countries
         loadCountries();
 
-        // Country → city dependent
         spinnerCountry.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> parent, View view1, int position, long id) {
-                String selectedCountry = parent.getItemAtPosition(position).toString();
-                loadCities(selectedCountry);
+                loadCities(parent.getItemAtPosition(position).toString());
             }
 
             @Override
@@ -53,44 +49,34 @@ public class OfflineFragment extends Fragment {
         });
 
         btnNext.setOnClickListener(v -> {
-            String selectedCountry = spinnerCountry.getSelectedItem() != null ? spinnerCountry.getSelectedItem().toString() : "";
-            String selectedCity = spinnerCity.getSelectedItem() != null ? spinnerCity.getSelectedItem().toString() : "";
+            String selectedCountry = spinnerCountry.getSelectedItem() != null ?
+                    spinnerCountry.getSelectedItem().toString() : "";
+            String selectedCity = spinnerCity.getSelectedItem() != null ?
+                    spinnerCity.getSelectedItem().toString() : "";
 
             if (selectedCountry.isEmpty() || selectedCity.isEmpty()) {
                 Toast.makeText(requireContext(), "Please select country and city", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Save to Firebase
             String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-            DatabaseReference db = FirebaseDatabase.getInstance().getReference("Users").child(userId);
-            db.child("country").setValue(selectedCountry)
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            db.child("city").setValue(selectedCity)
-                                    .addOnCompleteListener(task2 -> {
-                                        if (task2.isSuccessful()) {
-                                            Toast.makeText(requireContext(), "Location saved ✅", Toast.LENGTH_SHORT).show();
-                                            // Go to SkillsSelectFragment
-                                            requireActivity()
-                                                    .getSupportFragmentManager()
-                                                    .beginTransaction()
-                                                    .replace(R.id.container, new SkillsSelectFragment())
-                                                    .commit();
-                                        } else {
-                                            Toast.makeText(requireContext(), "Error saving city: " + task2.getException().getMessage(), Toast.LENGTH_LONG).show();
-                                        }
-                                    });
-                        } else {
-                            Toast.makeText(requireContext(), "Error saving country: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
-                        }
-                    });
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+            db.collection("Users").document(userId)
+                    .update("country", selectedCountry, "city", selectedCity)
+                    .addOnSuccessListener(aVoid -> {
+                        Toast.makeText(requireContext(), "Location saved ✅", Toast.LENGTH_SHORT).show();
+                        requireActivity().getSupportFragmentManager()
+                                .beginTransaction()
+                                .replace(R.id.container, new SkillsSelectFragment())
+                                .commit();
+                    })
+                    .addOnFailureListener(e ->
+                            Toast.makeText(requireContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
         });
 
         return view;
     }
-
-    // -------- Load countries --------
 
     private void loadCountries() {
         try {
@@ -118,8 +104,6 @@ public class OfflineFragment extends Fragment {
         }
     }
 
-    // -------- Load cities --------
-
     private void loadCities(String country) {
         try {
             JSONArray citiesArray = countriesObject.getJSONArray(country);
@@ -142,8 +126,6 @@ public class OfflineFragment extends Fragment {
             Toast.makeText(requireContext(), "Error loading cities", Toast.LENGTH_LONG).show();
         }
     }
-
-    // -------- Read JSON from assets --------
 
     private String loadJSONFromAsset() {
         try {

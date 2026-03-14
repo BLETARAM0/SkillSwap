@@ -5,12 +5,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 public class ProfileFragment extends Fragment {
 
@@ -22,34 +23,31 @@ public class ProfileFragment extends Fragment {
 
         View view = inflater.inflate(R.layout.fragment_profile, container, false);
 
-        // Bind views
         tvName = view.findViewById(R.id.tvName);
         tvEmail = view.findViewById(R.id.tvEmail);
         tvTeach = view.findViewById(R.id.tvTeach);
         tvStudy = view.findViewById(R.id.tvStudy);
 
-        FirebaseAuth auth = FirebaseAuth.getInstance();
-        DatabaseReference database = FirebaseDatabase.getInstance()
-                .getReference("Users");
+        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-        if (auth.getCurrentUser() != null) {
+        db.collection("Users").document(userId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        String name = documentSnapshot.getString("name");
+                        String surname = documentSnapshot.getString("surname");
+                        String email = documentSnapshot.getString("email");
+                        String teach = documentSnapshot.getString("skillTeach");
+                        String study = documentSnapshot.getString("skillStudy");
 
-            String userId = auth.getCurrentUser().getUid();
-
-            database.child(userId).get().addOnSuccessListener(snapshot -> {
-
-                String name = snapshot.child("name").getValue(String.class);
-                String surname = snapshot.child("surname").getValue(String.class);
-                String email = snapshot.child("email").getValue(String.class);
-                String teach = snapshot.child("skillTeach").getValue(String.class);
-                String study = snapshot.child("skillStudy").getValue(String.class);
-
-                tvName.setText(name + " " + surname);
-                tvEmail.setText(email);
-                tvTeach.setText("Teaches: " + teach);
-                tvStudy.setText("Wants to learn: " + study);
-            });
-        }
+                        tvName.setText(name + " " + surname);
+                        tvEmail.setText(email);
+                        tvTeach.setText("Teaches: " + teach);
+                        tvStudy.setText("Wants to learn: " + study);
+                    }
+                })
+                .addOnFailureListener(e -> Toast.makeText(requireContext(), "Error loading profile", Toast.LENGTH_SHORT).show());
 
         return view;
     }

@@ -10,8 +10,7 @@ import android.widget.Toast;
 import androidx.fragment.app.Fragment;
 
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 public class ModeSelectFragment extends Fragment {
 
@@ -24,49 +23,33 @@ public class ModeSelectFragment extends Fragment {
         Button btnOnline = view.findViewById(R.id.btnOnline);
         Button btnOffline = view.findViewById(R.id.btnOffline);
 
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+
         btnOnline.setOnClickListener(v -> {
-            // Save mode = online
-            String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-            DatabaseReference db = FirebaseDatabase.getInstance().getReference("Users").child(userId);
-            db.child("mode").setValue("online")
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            db.child("country").setValue("");
-                            db.child("city").setValue("").addOnCompleteListener(task2 -> {
-                                if (task2.isSuccessful()) {
-                                    Toast.makeText(requireContext(), "Online mode saved", Toast.LENGTH_SHORT).show();
-                                    // Go to SkillsSelectFragment
-                                    requireActivity().getSupportFragmentManager()
-                                            .beginTransaction()
-                                            .replace(R.id.container, new SkillsSelectFragment())
-                                            .commit();
-                                } else {
-                                    Toast.makeText(requireContext(), "Error clearing location: " + task2.getException().getMessage(), Toast.LENGTH_LONG).show();
-                                }
-                            });
-                        } else {
-                            Toast.makeText(requireContext(), "Error saving online mode: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
-                        }
-                    });
+            db.collection("Users").document(userId)
+                    .update("mode", "online", "country", "", "city", "")
+                    .addOnSuccessListener(aVoid -> {
+                        Toast.makeText(requireContext(), "Online mode saved", Toast.LENGTH_SHORT).show();
+                        requireActivity().getSupportFragmentManager()
+                                .beginTransaction()
+                                .replace(R.id.container, new SkillsSelectFragment())
+                                .commit();
+                    })
+                    .addOnFailureListener(e -> Toast.makeText(requireContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
         });
 
         btnOffline.setOnClickListener(v -> {
-            // Save mode = offline
-            String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-            DatabaseReference db = FirebaseDatabase.getInstance().getReference("Users").child(userId);
-            db.child("mode").setValue("offline")
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            Toast.makeText(requireContext(), "Offline mode selected", Toast.LENGTH_SHORT).show();
-                            // Go to OfflineFragment
-                            requireActivity().getSupportFragmentManager()
-                                    .beginTransaction()
-                                    .replace(R.id.container, new OfflineFragment())
-                                    .commit();
-                        } else {
-                            Toast.makeText(requireContext(), "Error saving offline mode: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
-                        }
-                    });
+            db.collection("Users").document(userId)
+                    .update("mode", "offline")
+                    .addOnSuccessListener(aVoid -> {
+                        Toast.makeText(requireContext(), "Offline mode selected", Toast.LENGTH_SHORT).show();
+                        requireActivity().getSupportFragmentManager()
+                                .beginTransaction()
+                                .replace(R.id.container, new OfflineFragment())
+                                .commit();
+                    })
+                    .addOnFailureListener(e -> Toast.makeText(requireContext(), "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
         });
 
         return view;
