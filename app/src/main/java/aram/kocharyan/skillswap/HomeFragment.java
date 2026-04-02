@@ -15,7 +15,9 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchClickListener {
 
@@ -53,26 +55,22 @@ public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchCl
                     AppUser currentUser = currentDoc.toObject(AppUser.class);
                     if (currentUser == null) return;
 
-
                     db.collection("Users")
                             .get()
-                            .addOnSuccessListener(queryDocumentSnapshots -> {
+                            .addOnSuccessListener(query -> {
                                 matchList.clear();
 
-                                for (QueryDocumentSnapshot doc : queryDocumentSnapshots) {
+                                for (QueryDocumentSnapshot doc : query) {
+                                    if (doc.getId().equals(currentUserId)) continue;
+
                                     AppUser user = doc.toObject(AppUser.class);
-                                    if (user == null || doc.getId().equals(currentUserId)) continue;
+                                    if (user == null) continue;
 
                                     if (isMatch(currentUser, user)) {
                                         matchList.add(user);
                                     }
                                 }
-
                                 adapter.notifyDataSetChanged();
-
-                                if (matchList.isEmpty()) {
-                                    Toast.makeText(requireContext(), "No matches found yet", Toast.LENGTH_SHORT).show();
-                                }
                             });
                 });
     }
@@ -80,16 +78,12 @@ public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchCl
     private boolean isMatch(AppUser current, AppUser other) {
         if (current.mode == null || other.mode == null) return false;
 
-
         boolean skillsMatch = current.skillTeach.equals(other.skillStudy) &&
                 current.skillStudy.equals(other.skillTeach);
 
         if (!skillsMatch) return false;
 
-
-        if ("online".equals(current.mode) && "online".equals(other.mode)) {
-            return true;
-        }
+        if ("online".equals(current.mode) && "online".equals(other.mode)) return true;
 
         if ("offline".equals(current.mode) && "offline".equals(other.mode)) {
             return current.country != null && current.country.equals(other.country) &&
@@ -101,6 +95,35 @@ public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchCl
 
     @Override
     public void onMatchClick(AppUser user) {
-        Toast.makeText(requireContext(), "Clicked on: " + user.name, Toast.LENGTH_SHORT).show();
+        sendChatRequest(user);
+    }
+
+    private void sendChatRequest(AppUser targetUser) {
+        // requestId
+        String requestId = currentUserId + "_" + targetUser.userId;
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db.collection("Users").document(currentUserId)
+                .get()
+                .addOnSuccessListener(document -> {
+                    if (!document.exists()) return;
+                    AppUser currentUser = document.toObject(AppUser.class);
+                    if (currentUser == null) return;
+
+                    Map<String, Object> request = new HashMap<>();
+                    request.put("fromUserId", currentUserId);
+                    request.put("fromName", currentUser.name);       // Имя
+                    request.put("fromSurname", currentUser.surname); // Фамилия
+                    request.put("fromEmail", currentUser.email);     // Gmail/Email
+                    request.put("toUserId", targetUser.userId);      // Кому отправляем
+
+                    db.collection("ChatRequests")
+                            .document(requestId)
+                            .set(request)
+                            .addOnSuccessListener(aVoid ->
+                                    Toast.makeText(requireContext(), "Request sent to " + targetUser.name, Toast.LENGTH_SHORT).show())
+                            .addOnFailureListener(e ->
+                                    Toast.makeText(requireContext(), "Failed: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                });
     }
 }

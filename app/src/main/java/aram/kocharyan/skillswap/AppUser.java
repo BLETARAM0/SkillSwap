@@ -2,6 +2,8 @@ package aram.kocharyan.skillswap;
 
 public class AppUser {
 
+    public String userId;
+
     public String name;
     public String surname;
     public String email;
@@ -11,11 +13,14 @@ public class AppUser {
     public String country;   // for offline
     public String city;      // for offline
 
+    // Пустой конструктор нужен для Firebase
     public AppUser() {}
 
-    public AppUser(String name, String surname, String email,
+    // Конструктор со всеми полями
+    public AppUser(String userId, String name, String surname, String email,
                    String skillTeach, String skillStudy,
                    String mode, String country, String city) {
+        this.userId = userId;
         this.name = name;
         this.surname = surname;
         this.email = email;

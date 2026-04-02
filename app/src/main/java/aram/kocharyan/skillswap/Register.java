@@ -64,7 +64,7 @@ public class Register extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         String userId = auth.getCurrentUser().getUid();
 
-                        AppUser user = new AppUser(name, surname, email, "", "", "", "", "");
+                        AppUser user = new AppUser(userId, name, surname, email, "", "", "", "", "");
 
                         db.collection("Users")
                                 .document(userId)

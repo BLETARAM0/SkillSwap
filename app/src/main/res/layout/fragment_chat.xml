@@ -5,7 +5,7 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <!-- Верхняя строка: Chat слева + кнопка справа -->
+    <!-- Верхняя строка: Chat + кнопка видеозвонка справа -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -32,17 +32,36 @@
             android:backgroundTint="#00BFA5"
             android:textColor="#FFFFFF"
             android:textSize="16sp"
-            android:visibility="gone" />   <!-- скрыта по умолчанию -->
+            android:visibility="gone"/>
     </LinearLayout>
 
-    <!-- Заглушка чата -->
+    <!-- Заголовок входящих запросов -->
     <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Chat Requests"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Список входящих запросов -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerRequests"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
+
+    <!-- Если запросов нет -->
+    <TextView
+        android:id="@+id/tvNoRequests"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="No messages yet...\n\nWhen you match with someone,\nyour chat will appear here."
+        android:text="No pending requests"
         android:textSize="16sp"
         android:gravity="center"
         android:layout_gravity="center"
-        android:layout_marginTop="80dp"/>
+        android:layout_marginTop="40dp"
+        android:visibility="gone"/>
 
 </LinearLayout>
