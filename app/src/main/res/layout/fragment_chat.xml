@@ -52,7 +52,6 @@
         android:layout_height="0dp"
         android:layout_weight="1"/>
 
-    <!-- Если запросов нет -->
     <TextView
         android:id="@+id/tvNoRequests"
         android:layout_width="wrap_content"
@@ -64,4 +63,19 @@
         android:layout_marginTop="40dp"
         android:visibility="gone"/>
 
+    <!-- ====== Список активных чатов ====== -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Active Chats"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="8dp"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerChats"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"/>
 </LinearLayout>

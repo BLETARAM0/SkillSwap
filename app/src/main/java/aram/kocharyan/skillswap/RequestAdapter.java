@@ -31,9 +31,10 @@ public class RequestAdapter extends RecyclerView.Adapter<RequestAdapter.RequestV
 
     @Override
     public void onBindViewHolder(@NonNull RequestViewHolder holder, int position) {
+
         ChatRequest request = requestList.get(position);
 
-        holder.tvFromName.setText("From: " + request.fromName);
+        holder.tvFromName.setText(request.fromName);
 
         holder.btnAccept.setOnClickListener(v -> listener.onAction(request, true));
         holder.btnReject.setOnClickListener(v -> listener.onAction(request, false));
@@ -45,11 +46,13 @@ public class RequestAdapter extends RecyclerView.Adapter<RequestAdapter.RequestV
     }
 
     static class RequestViewHolder extends RecyclerView.ViewHolder {
+
         TextView tvFromName;
         Button btnAccept, btnReject;
 
         public RequestViewHolder(@NonNull View itemView) {
             super(itemView);
+
             tvFromName = itemView.findViewById(R.id.tvFromName);
             btnAccept = itemView.findViewById(R.id.btnAccept);
             btnReject = itemView.findViewById(R.id.btnReject);
