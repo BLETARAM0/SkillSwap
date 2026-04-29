@@ -36,9 +36,8 @@ android {
 dependencies {
     // Import the Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
-    implementation("org.jitsi.react:jitsi-meet-sdk:11.6.3") {
-        isTransitive = true
-    }
+    implementation("org.jitsi.react:jitsi-meet-sdk:10.0.0") { isTransitive = true }
+    implementation("com.github.bumptech.glide:glide:4.16.0")
     // Firebase deps
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)
