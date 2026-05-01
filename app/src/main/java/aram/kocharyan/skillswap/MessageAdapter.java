@@ -10,7 +10,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.PopupMenu;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import java.text.SimpleDateFormat;
@@ -63,50 +62,57 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
             holder.tvDateHeader.setVisibility(View.GONE);
         }
 
-        // Логика ответа (Reply)
-        if (message.replyToText != null) {
-            holder.tvReplyText.setVisibility(View.VISIBLE);
-            holder.tvReplyText.setText(message.replyToText);
-        } else {
-            holder.tvReplyText.setVisibility(View.GONE);
-        }
+        // Время
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.US);
+        String timeStr = timeFormat.format(message.timestamp);
 
-        // Удаление/Текст
+        // ЛОГИКА УДАЛЕНИЯ И ТЕКСТА
         if ("deleted".equals(message.type)) {
             holder.tvMessage.setText("Message deleted");
+            holder.tvMessage.setTextColor(Color.GRAY);
             holder.tvMessage.setTypeface(null, Typeface.ITALIC);
-            holder.tvTime.setVisibility(View.GONE);
+            holder.tvReplyText.setVisibility(View.GONE);
+            holder.tvEdited.setVisibility(View.GONE); // У удаленного не пишем edited
+            holder.tvTime.setText(timeStr);
         } else {
             holder.tvMessage.setText(message.text);
+            holder.tvMessage.setTextColor(Color.BLACK);
             holder.tvMessage.setTypeface(null, Typeface.NORMAL);
-            holder.tvTime.setVisibility(View.VISIBLE);
-            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
-            holder.tvTime.setText(sdf.format(message.timestamp));
-        }
 
-        holder.tvEdited.setVisibility(message.edited ? View.VISIBLE : View.GONE);
-
-        // Статусы (Птички)
-// Внутри MessageAdapter, для сообщений справа (sender)
-        if (holder.tvStatus != null) {
-// Замени message.getStatus() на message.status
-            int status = message.status;
-
-            holder.tvStatus.setText("✓");
-
-            if (status == 2) {
-                holder.tvStatus.setTextColor(Color.parseColor("#03A9F4")); // Синий
+            // Реплай только у живых сообщений
+            if (message.replyToText != null) {
+                holder.tvReplyText.setVisibility(View.VISIBLE);
+                holder.tvReplyText.setText(message.replyToText);
             } else {
-                holder.tvStatus.setTextColor(Color.GRAY); // Серый
+                holder.tvReplyText.setVisibility(View.GONE);
+            }
+
+            // Исправленный EDITED с пробелом
+            if (message.edited) {
+                holder.tvEdited.setVisibility(View.VISIBLE);
+                holder.tvEdited.setText("edited " + timeStr);
+                holder.tvTime.setVisibility(View.GONE); // Скрываем обычное время, если есть edited
+            } else {
+                holder.tvEdited.setVisibility(View.GONE);
+                holder.tvTime.setVisibility(View.VISIBLE);
+                holder.tvTime.setText(timeStr);
             }
         }
 
-        // Лонг клик для меню
+        // Птички
+        if (holder.tvStatus != null) {
+            holder.tvStatus.setText("✓");
+            holder.tvStatus.setTextColor(message.status == 2 ? Color.parseColor("#03A9F4") : Color.GRAY);
+        }
+
+        // Лонг клик
         holder.itemView.setOnLongClickListener(v -> {
+            if ("deleted".equals(message.type)) return false; // Удаленные нельзя трогать
+
             PopupMenu popup = new PopupMenu(context, holder.tvMessage);
             popup.getMenu().add("Reply");
             popup.getMenu().add("Copy");
-            if (message.senderId.equals(currentUserId) && !"deleted".equals(message.type)) {
+            if (message.senderId.equals(currentUserId)) {
                 popup.getMenu().add("Edit");
                 popup.getMenu().add("Delete");
             }
@@ -134,35 +140,19 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     }
 
     private String formatDate(long t) {
-
         Calendar now = Calendar.getInstance();
         Calendar msg = Calendar.getInstance();
         msg.setTimeInMillis(t);
 
-        // Сегодня
-        if (isSameDay(now.getTimeInMillis(), t)) {
-            return "Today";
-        }
+        if (isSameDay(now.getTimeInMillis(), t)) return "Today";
 
-        // Вчера
         Calendar yesterday = Calendar.getInstance();
         yesterday.add(Calendar.DAY_OF_YEAR, -1);
+        if (isSameDay(yesterday.getTimeInMillis(), t)) return "Yesterday";
 
-        if (isSameDay(yesterday.getTimeInMillis(), t)) {
-            return "Yesterday";
-        }
-
-        SimpleDateFormat formatter;
-
-        // Этот год → без года
-        if (now.get(Calendar.YEAR) == msg.get(Calendar.YEAR)) {
-            formatter = new SimpleDateFormat("MMM d", Locale.US);
-        }
-        // Другой год → с годом
-        else {
-            formatter = new SimpleDateFormat("MMM d, yyyy", Locale.US);
-        }
-
+        SimpleDateFormat formatter = (now.get(Calendar.YEAR) == msg.get(Calendar.YEAR))
+                ? new SimpleDateFormat("MMM d", Locale.US)
+                : new SimpleDateFormat("MMM d, yyyy", Locale.US);
         return formatter.format(msg.getTime());
     }
 
@@ -177,7 +167,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
             tvTime = itemView.findViewById(R.id.tvTime);
             tvEdited = itemView.findViewById(R.id.tvEdited);
             tvStatus = itemView.findViewById(R.id.tvStatus);
-            tvReplyText = itemView.findViewById(R.id.tvReplyText); // ДОБАВЬ В XML
+            tvReplyText = itemView.findViewById(R.id.tvReplyText);
         }
     }
 }

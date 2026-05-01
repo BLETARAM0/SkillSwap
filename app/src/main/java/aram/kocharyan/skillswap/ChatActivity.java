@@ -37,6 +37,7 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
     private String currentUserId, chatId;
     private String editingId = null;
     private Message replyMessage = null;
+    private ImageButton btnAttach;
 
     // Переменная для управления слушателем базы данных
     private ListenerRegistration chatListener;
@@ -81,6 +82,7 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
             }
         });
 
+
         setupSwipeReply();
         loadMessages();
 
@@ -98,6 +100,32 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
                 }
             });
         }
+
+        btnAttach = findViewById(R.id.btnAttach);
+        btnAttach.setOnClickListener(v -> showAttachmentMenu());
+    }
+
+    private void showAttachmentMenu() {
+        com.google.android.material.bottomsheet.BottomSheetDialog dialog =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(this);
+        View view = getLayoutInflater().inflate(R.layout.layout_attachment_picker, null);
+
+        view.findViewById(R.id.itemGallery).setOnClickListener(v -> {
+            // Открыть галерею
+            openGallery();
+            dialog.dismiss();
+        });
+
+        // Добавь обработку для камеры, документов и т.д.
+
+        dialog.setContentView(view);
+        dialog.show();
+    }
+
+    private void openGallery() {
+        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_PICK);
+        intent.setType("image/*");
+        startActivityForResult(intent, 101); // 101 - код для галереи
     }
 
     private void sendMessage(String text) {
@@ -162,10 +190,24 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
 
     private void setupSwipeReply() {
         new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
-            @Override public boolean onMove(@NonNull RecyclerView rv, @NonNull RecyclerView.ViewHolder vh, @NonNull RecyclerView.ViewHolder t) { return false; }
-            @Override public void onSwiped(@NonNull RecyclerView.ViewHolder vh, int dir) {
-                onReply(messageList.get(vh.getAdapterPosition()));
-                adapter.notifyItemChanged(vh.getAdapterPosition());
+            @Override
+            public boolean onMove(@NonNull RecyclerView rv, @NonNull RecyclerView.ViewHolder vh, @NonNull RecyclerView.ViewHolder t) {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder vh, int dir) {
+                int position = vh.getAdapterPosition();
+                Message m = messageList.get(position);
+
+                // Если сообщение удалено, сбрасываем свайп и ничего не делаем
+                if ("deleted".equals(m.type)) {
+                    adapter.notifyItemChanged(position);
+                } else {
+                    // Если живое — вызываем реплай
+                    onReply(m);
+                    adapter.notifyItemChanged(position);
+                }
             }
         }).attachToRecyclerView(recyclerView);
     }
@@ -196,8 +238,13 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
                 });
     }
 
-    @Override public void onDelete(Message m) {
+    @Override
+    public void onDelete(Message m) {
         db.collection("Chats").document(chatId).collection("Messages").document(m.messageId)
-                .update("type", "deleted", "text", "Message deleted");
+                .update(
+                        "type", "deleted",
+                        "text", "Message deleted",
+                        "replyToText", null // Убираем реплай, чтобы он не висел над удаленным сообщением
+                );
     }
 }
