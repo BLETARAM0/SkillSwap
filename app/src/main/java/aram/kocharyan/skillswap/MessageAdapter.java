@@ -134,7 +134,36 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     }
 
     private String formatDate(long t) {
-        return new SimpleDateFormat("d MMMM", Locale.getDefault()).format(t);
+
+        Calendar now = Calendar.getInstance();
+        Calendar msg = Calendar.getInstance();
+        msg.setTimeInMillis(t);
+
+        // Сегодня
+        if (isSameDay(now.getTimeInMillis(), t)) {
+            return "Today";
+        }
+
+        // Вчера
+        Calendar yesterday = Calendar.getInstance();
+        yesterday.add(Calendar.DAY_OF_YEAR, -1);
+
+        if (isSameDay(yesterday.getTimeInMillis(), t)) {
+            return "Yesterday";
+        }
+
+        SimpleDateFormat formatter;
+
+        // Этот год → без года
+        if (now.get(Calendar.YEAR) == msg.get(Calendar.YEAR)) {
+            formatter = new SimpleDateFormat("MMM d", Locale.US);
+        }
+        // Другой год → с годом
+        else {
+            formatter = new SimpleDateFormat("MMM d, yyyy", Locale.US);
+        }
+
+        return formatter.format(msg.getTime());
     }
 
     @Override public int getItemCount() { return messageList.size(); }
