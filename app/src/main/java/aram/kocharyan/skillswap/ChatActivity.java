@@ -3,6 +3,7 @@ package aram.kocharyan.skillswap;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -17,6 +18,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +38,9 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
     private String editingId = null;
     private Message replyMessage = null;
 
+    // Переменная для управления слушателем базы данных
+    private ListenerRegistration chatListener;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -48,14 +53,13 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         recyclerView = findViewById(R.id.recyclerMessages);
         etMessage = findViewById(R.id.etMessage);
         btnSend = findViewById(R.id.btnSend);
-        layoutReply = findViewById(R.id.layoutReplyPreview); // Создай в XML
+        layoutReply = findViewById(R.id.layoutReplyPreview);
         tvReplyPreview = findViewById(R.id.tvReplyPreviewText);
 
         adapter = new MessageAdapter(messageList, currentUserId, this);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
-        // Кнопка: микрофон при старте
         btnSend.setImageResource(android.R.drawable.ic_btn_speak_now);
 
         etMessage.addTextChangedListener(new TextWatcher() {
@@ -80,19 +84,17 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         setupSwipeReply();
         loadMessages();
 
-        // В onCreate добавь:
         ImageButton btnBack = findViewById(R.id.btnBack);
-        btnBack.setOnClickListener(v -> finish()); // Закрывает чат и возвращает назад
+        btnBack.setOnClickListener(v -> finish());
 
         String otherUserId = getIntent().getStringExtra("otherUserId");
         if (otherUserId != null) {
-            // Загружаем имя собеседника из коллекции Users
             db.collection("Users").document(otherUserId).get().addOnSuccessListener(doc -> {
                 if (doc.exists()) {
                     String name = doc.getString("name");
                     String surname = doc.getString("surname");
                     TextView tvUserName = findViewById(R.id.tvUserName);
-                    tvUserName.setText(name + " " + surname);
+                    if (tvUserName != null) tvUserName.setText(name + " " + surname);
                 }
             });
         }
@@ -100,7 +102,7 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
 
     private void sendMessage(String text) {
         DocumentReference ref = db.collection("Chats").document(chatId).collection("Messages").document();
-        String myMsgId = ref.getId(); // Генерируем ID заранее
+        String myMsgId = ref.getId();
 
         Message msg = new Message(myMsgId, currentUserId, text, System.currentTimeMillis(), 0, "text", false);
 
@@ -111,33 +113,51 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         ref.set(msg).addOnSuccessListener(aVoid -> {
             etMessage.setText("");
             cancelReply();
-            // После успешной записи в облако — ставим статус 1
             ref.update("status", 1);
         });
     }
 
     private void loadMessages() {
-        db.collection("Chats").document(chatId).collection("Messages").orderBy("timestamp", Query.Direction.ASCENDING)
+        // Инициализируем слушатель и сохраняем его в chatListener
+        chatListener = db.collection("Chats").document(chatId)
+                .collection("Messages")
+                .orderBy("timestamp", Query.Direction.ASCENDING)
                 .addSnapshotListener((value, e) -> {
-                    if (value == null) return;
-                    messageList.clear();
-                    for (DocumentSnapshot doc : value.getDocuments()) {
-                        Message msg = doc.toObject(Message.class);
-                        if (msg != null) {
-                            messageList.add(msg);
+                    if (e != null) {
+                        Log.e("ChatActivity", "Listen failed", e);
+                        return;
+                    }
 
-                            // Если сообщение прислал НЕ Я и оно еще не прочитано (status < 2)
-                            if (!msg.senderId.equals(currentUserId) && msg.status < 2) {
-                                // Обновляем статус на "прочитано" в базе
-                                db.collection("Chats").document(chatId)
-                                        .collection("Messages").document(msg.messageId)
-                                        .update("status", 2);
+                    if (value != null) {
+                        messageList.clear();
+                        for (DocumentSnapshot doc : value.getDocuments()) {
+                            Message msg = doc.toObject(Message.class);
+                            if (msg != null) {
+                                messageList.add(msg);
+
+                                // Логика "Птичек": если сообщение чужое и я сейчас в этой Activity
+                                if (!msg.senderId.equals(currentUserId) && msg.status < 2) {
+                                    doc.getReference().update("status", 2);
+                                }
                             }
                         }
+                        adapter.notifyDataSetChanged();
+                        if (messageList.size() > 0) {
+                            recyclerView.scrollToPosition(messageList.size() - 1);
+                        }
                     }
-                    adapter.notifyDataSetChanged();
-                    recyclerView.scrollToPosition(messageList.size() - 1);
                 });
+    }
+
+    // Этот метод вызывается, когда пользователь выходит из чата
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Удаляем слушателя, чтобы статусы не обновлялись в фоне
+        if (chatListener != null) {
+            chatListener.remove();
+            chatListener = null;
+        }
     }
 
     private void setupSwipeReply() {

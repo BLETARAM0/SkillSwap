@@ -3,6 +3,7 @@ package aram.kocharyan.skillswap;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -86,19 +87,17 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         holder.tvEdited.setVisibility(message.edited ? View.VISIBLE : View.GONE);
 
         // Статусы (Птички)
+// Внутри MessageAdapter, для сообщений справа (sender)
         if (holder.tvStatus != null) {
-            holder.tvStatus.setVisibility(View.VISIBLE);
+// Замени message.getStatus() на message.status
+            int status = message.status;
 
-            if (message.status == 0) {
-                holder.tvStatus.setText("🕒"); // Часики (в очереди)
-                holder.tvStatus.setTextColor(0xFF888888);
-            } else if (message.status == 1) {
-                holder.tvStatus.setText("✓"); // Одна галочка (отправлено)
-                holder.tvStatus.setTextColor(0xFF888888);
-            } else if (message.status == 2) {
-                holder.tvStatus.setText("✓✓"); // Две галочки (прочитано)
-                // Ярко-синий цвет как в телеге
-                holder.tvStatus.setTextColor(0xFF03A9F4);
+            holder.tvStatus.setText("✓");
+
+            if (status == 2) {
+                holder.tvStatus.setTextColor(Color.parseColor("#03A9F4")); // Синий
+            } else {
+                holder.tvStatus.setTextColor(Color.GRAY); // Серый
             }
         }
 
