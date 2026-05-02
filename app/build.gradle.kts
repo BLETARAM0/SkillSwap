@@ -38,6 +38,9 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
     implementation("org.jitsi.react:jitsi-meet-sdk:10.0.0") { isTransitive = true }
     implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation ("com.google.firebase:firebase-storage")
+    implementation ("com.github.bumptech.glide:glide:4.16.0")
+    annotationProcessor ("com.github.bumptech.glide:compiler:4.16.0")
     // Firebase deps
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)

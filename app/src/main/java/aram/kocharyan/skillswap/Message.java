@@ -8,8 +8,8 @@ public class Message {
     public int status; // 0-pending, 1-sent, 2-read
     public String type;
     public boolean edited;
-    public String replyToText; // Текст сообщения, на которое отвечаем
-    public String replyToSenderId; // Кто автор оригинала
+    public String fileName;
+    public String replyToText;
 
     public Message() {}
 

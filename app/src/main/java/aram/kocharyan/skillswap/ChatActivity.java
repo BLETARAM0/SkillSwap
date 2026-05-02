@@ -1,6 +1,13 @@
 package aram.kocharyan.skillswap;
 
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -9,38 +16,107 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
+
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class ChatActivity extends AppCompatActivity implements MessageAdapter.MessageActionListener {
 
+    private static final String TAG = "ChatActivity";
+
+    // ── Cloudinary ──────────────────────────────────────────────────────────
+    private static final String CLOUD_NAME     = "dium7pqky";
+    private static final String UPLOAD_PRESET  = "SkillSwap";
+    private static final String UPLOAD_URL     =
+            "https://api.cloudinary.com/v1_1/" + CLOUD_NAME + "/auto/upload";
+
+    // ── UI ──────────────────────────────────────────────────────────────────
     private RecyclerView recyclerView;
     private EditText etMessage;
-    private ImageButton btnSend;
+    private ImageButton btnSend, btnAttach;
     private TextView tvReplyPreview;
     private View layoutReply;
 
+    // ── Data ────────────────────────────────────────────────────────────────
     private MessageAdapter adapter;
-    private List<Message> messageList = new ArrayList<>();
+    private final List<Message> messageList = new ArrayList<>();
     private FirebaseFirestore db;
     private String currentUserId, chatId;
     private String editingId = null;
     private Message replyMessage = null;
-    private ImageButton btnAttach;
-
-    // Переменная для управления слушателем базы данных
     private ListenerRegistration chatListener;
+
+    // Для камеры
+    private Uri cameraImageUri;
+
+    // ── Activity Result Launchers ───────────────────────────────────────────
+
+    private final ActivityResultLauncher<Intent> galleryLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    Uri uri = result.getData().getData();
+                    if (uri != null) uploadToCloudinary(uri, "image");
+                }
+            });
+
+    private final ActivityResultLauncher<Intent> cameraLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK && cameraImageUri != null) {
+                    uploadToCloudinary(cameraImageUri, "image");
+                }
+            });
+
+    private final ActivityResultLauncher<Intent> documentLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                    Uri uri = result.getData().getData();
+                    if (uri != null) uploadToCloudinary(uri, "document");
+                }
+            });
+
+    private final ActivityResultLauncher<String> cameraPermLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+                if (granted) openCamera();
+                else Toast.makeText(this, "Camera permission denied", Toast.LENGTH_SHORT).show();
+            });
+
+    private final ActivityResultLauncher<String> storagePermLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+                if (granted) openGallery();
+                else Toast.makeText(this, "Storage permission denied", Toast.LENGTH_SHORT).show();
+            });
+
+    // ── Lifecycle ───────────────────────────────────────────────────────────
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,13 +125,39 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
 
         chatId = getIntent().getStringExtra("chatId");
         db = FirebaseFirestore.getInstance();
+
+        if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+            Toast.makeText(this, "Not authorized", Toast.LENGTH_SHORT).show();
+            finish();
+            return;
+        }
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-        recyclerView = findViewById(R.id.recyclerMessages);
-        etMessage = findViewById(R.id.etMessage);
-        btnSend = findViewById(R.id.btnSend);
-        layoutReply = findViewById(R.id.layoutReplyPreview);
+        initViews();
+        loadOtherUserName();
+        setupSendButton();
+        setupSwipeReply();
+        loadMessages();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        if (chatListener != null) {
+            chatListener.remove();
+            chatListener = null;
+        }
+    }
+
+    // ── Init ────────────────────────────────────────────────────────────────
+
+    private void initViews() {
+        recyclerView   = findViewById(R.id.recyclerMessages);
+        etMessage      = findViewById(R.id.etMessage);
+        btnSend        = findViewById(R.id.btnSend);
+        layoutReply    = findViewById(R.id.layoutReplyPreview);
         tvReplyPreview = findViewById(R.id.tvReplyPreviewText);
+        btnAttach      = findViewById(R.id.btnAttach);
 
         adapter = new MessageAdapter(messageList, currentUserId, this);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -65,45 +167,46 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
 
         etMessage.addTextChangedListener(new TextWatcher() {
             @Override public void onTextChanged(CharSequence s, int start, int b, int c) {
-                if (s.toString().trim().length() > 0) btnSend.setImageResource(android.R.drawable.ic_menu_send);
-                else btnSend.setImageResource(android.R.drawable.ic_btn_speak_now);
+                btnSend.setImageResource(s.toString().trim().length() > 0
+                        ? android.R.drawable.ic_menu_send
+                        : android.R.drawable.ic_btn_speak_now);
             }
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void beforeTextChanged(CharSequence s, int i, int c, int a) {}
             @Override public void afterTextChanged(Editable s) {}
         });
 
+        btnAttach.setOnClickListener(v -> showAttachmentMenu());
+
+        ImageButton btnBack = findViewById(R.id.btnBack);
+        if (btnBack != null) btnBack.setOnClickListener(v -> finish());
+    }
+
+    private void loadOtherUserName() {
+        String otherUserId = getIntent().getStringExtra("otherUserId");
+        if (otherUserId == null) return;
+        db.collection("Users").document(otherUserId).get().addOnSuccessListener(doc -> {
+            if (doc.exists()) {
+                String name    = doc.getString("name");
+                String surname = doc.getString("surname");
+                TextView tvUserName = findViewById(R.id.tvUserName);
+                if (tvUserName != null) tvUserName.setText(name + " " + surname);
+            }
+        });
+    }
+
+    private void setupSendButton() {
         btnSend.setOnClickListener(v -> {
             String txt = etMessage.getText().toString().trim();
             if (txt.isEmpty()) {
                 Toast.makeText(this, "Hold for Voice", Toast.LENGTH_SHORT).show();
             } else {
                 if (editingId != null) commitEdit(txt);
-                else sendMessage(txt);
+                else sendTextMessage(txt);
             }
         });
-
-
-        setupSwipeReply();
-        loadMessages();
-
-        ImageButton btnBack = findViewById(R.id.btnBack);
-        btnBack.setOnClickListener(v -> finish());
-
-        String otherUserId = getIntent().getStringExtra("otherUserId");
-        if (otherUserId != null) {
-            db.collection("Users").document(otherUserId).get().addOnSuccessListener(doc -> {
-                if (doc.exists()) {
-                    String name = doc.getString("name");
-                    String surname = doc.getString("surname");
-                    TextView tvUserName = findViewById(R.id.tvUserName);
-                    if (tvUserName != null) tvUserName.setText(name + " " + surname);
-                }
-            });
-        }
-
-        btnAttach = findViewById(R.id.btnAttach);
-        btnAttach.setOnClickListener(v -> showAttachmentMenu());
     }
+
+    // ── Attachment Menu ─────────────────────────────────────────────────────
 
     private void showAttachmentMenu() {
         com.google.android.material.bottomsheet.BottomSheetDialog dialog =
@@ -111,111 +214,252 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         View view = getLayoutInflater().inflate(R.layout.layout_attachment_picker, null);
 
         view.findViewById(R.id.itemGallery).setOnClickListener(v -> {
-            // Открыть галерею
-            openGallery();
             dialog.dismiss();
+            checkStoragePermAndOpenGallery();
         });
-
-        // Добавь обработку для камеры, документов и т.д.
+        view.findViewById(R.id.itemCamera).setOnClickListener(v -> {
+            dialog.dismiss();
+            checkCameraPermAndOpen();
+        });
+        view.findViewById(R.id.itemDocument).setOnClickListener(v -> {
+            dialog.dismiss();
+            openDocumentPicker();
+        });
 
         dialog.setContentView(view);
         dialog.show();
     }
 
-    private void openGallery() {
-        android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_PICK);
-        intent.setType("image/*");
-        startActivityForResult(intent, 101); // 101 - код для галереи
+    // ── Gallery ─────────────────────────────────────────────────────────────
+
+    private void checkStoragePermAndOpenGallery() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            openGallery();
+        } else if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+            openGallery();
+        } else {
+            storagePermLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE);
+        }
     }
 
-    private void sendMessage(String text) {
-        DocumentReference ref = db.collection("Chats").document(chatId).collection("Messages").document();
-        String myMsgId = ref.getId();
+    private void openGallery() {
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        intent.setType("image/*");
+        galleryLauncher.launch(intent);
+    }
 
-        Message msg = new Message(myMsgId, currentUserId, text, System.currentTimeMillis(), 0, "text", false);
+    // ── Camera ──────────────────────────────────────────────────────────────
 
-        if (replyMessage != null) {
-            msg.replyToText = replyMessage.text;
+    private void checkCameraPermAndOpen() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED) {
+            openCamera();
+        } else {
+            cameraPermLauncher.launch(Manifest.permission.CAMERA);
         }
+    }
 
-        ref.set(msg).addOnSuccessListener(aVoid -> {
+    private void openCamera() {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (intent.resolveActivity(getPackageManager()) == null) {
+            Toast.makeText(this, "No camera app found", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            File photoFile = createImageFile();
+            cameraImageUri = FileProvider.getUriForFile(
+                    this, getPackageName() + ".provider", photoFile);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri);
+            cameraLauncher.launch(intent);
+        } catch (IOException e) {
+            Log.e(TAG, "Camera file error", e);
+            Toast.makeText(this, "Could not open camera", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private File createImageFile() throws IOException {
+        String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        File dir  = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        return File.createTempFile("IMG_" + ts + "_", ".jpg", dir);
+    }
+
+    // ── Document Picker ─────────────────────────────────────────────────────
+
+    private void openDocumentPicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        documentLauncher.launch(intent);
+    }
+
+    // ── Cloudinary Upload ───────────────────────────────────────────────────
+
+    private void uploadToCloudinary(Uri uri, String messageType) {
+        Toast.makeText(this, "Uploading...", Toast.LENGTH_SHORT).show();
+        String fileName = getFileName(uri);
+
+        new Thread(() -> {
+            try {
+                // Читаем файл
+                InputStream is = getContentResolver().openInputStream(uri);
+                if (is == null) throw new IOException("Cannot open stream");
+                byte[] fileBytes = is.readAllBytes();
+                is.close();
+
+                String boundary = "Boundary" + System.currentTimeMillis();
+                HttpURLConnection conn = (HttpURLConnection) new URL(UPLOAD_URL).openConnection();
+                conn.setDoOutput(true);
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+                conn.setConnectTimeout(30_000);
+                conn.setReadTimeout(60_000);
+
+                DataOutputStream dos = new DataOutputStream(conn.getOutputStream());
+
+                // поле upload_preset
+                dos.writeBytes("--" + boundary + "\r\n");
+                dos.writeBytes("Content-Disposition: form-data; name=\"upload_preset\"\r\n\r\n");
+                dos.writeBytes(UPLOAD_PRESET + "\r\n");
+
+                // поле file
+                dos.writeBytes("--" + boundary + "\r\n");
+                dos.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\""
+                        + fileName + "\"\r\n");
+                dos.writeBytes("Content-Type: application/octet-stream\r\n\r\n");
+                dos.write(fileBytes);
+                dos.writeBytes("\r\n--" + boundary + "--\r\n");
+                dos.flush();
+                dos.close();
+
+                int code = conn.getResponseCode();
+                InputStream resp = (code == 200) ? conn.getInputStream() : conn.getErrorStream();
+                BufferedReader br = new BufferedReader(new InputStreamReader(resp));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                conn.disconnect();
+
+                if (code == 200) {
+                    String fileUrl = new JSONObject(sb.toString()).getString("secure_url");
+                    runOnUiThread(() -> sendFileMessage(fileUrl, fileName, messageType));
+                } else {
+                    Log.e(TAG, "Cloudinary error " + code + ": " + sb);
+                    runOnUiThread(() ->
+                            Toast.makeText(this, "Upload failed (" + code + ")", Toast.LENGTH_LONG).show());
+                }
+
+            } catch (Exception e) {
+                Log.e(TAG, "Upload error", e);
+                runOnUiThread(() ->
+                        Toast.makeText(this, "Upload error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private String getFileName(Uri uri) {
+        String result = null;
+        if ("content".equals(uri.getScheme())) {
+            try (android.database.Cursor c = getContentResolver().query(
+                    uri, null, null, null, null)) {
+                if (c != null && c.moveToFirst()) {
+                    int idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
+                    if (idx >= 0) result = c.getString(idx);
+                }
+            }
+        }
+        if (result == null) {
+            String path = uri.getPath();
+            if (path != null) {
+                int cut = path.lastIndexOf('/');
+                result = (cut != -1) ? path.substring(cut + 1) : path;
+            }
+        }
+        return result != null ? result : "file_" + System.currentTimeMillis();
+    }
+
+    // ── Messaging ───────────────────────────────────────────────────────────
+
+    private void sendTextMessage(String text) {
+        DocumentReference ref = db.collection("Chats").document(chatId)
+                .collection("Messages").document();
+        Message msg = new Message(ref.getId(), currentUserId, text,
+                System.currentTimeMillis(), 0, "text", false);
+        if (replyMessage != null) msg.replyToText = replyMessage.text;
+
+        ref.set(msg).addOnSuccessListener(v -> {
             etMessage.setText("");
             cancelReply();
             ref.update("status", 1);
-        });
+        }).addOnFailureListener(e ->
+                Toast.makeText(this, "Send failed", Toast.LENGTH_SHORT).show());
+    }
+
+    private void sendFileMessage(String fileUrl, String fileName, String type) {
+        DocumentReference ref = db.collection("Chats").document(chatId)
+                .collection("Messages").document();
+        Message msg = new Message(ref.getId(), currentUserId, fileUrl,
+                System.currentTimeMillis(), 0, type, false);
+        msg.fileName = fileName;
+        if (replyMessage != null) msg.replyToText = replyMessage.text;
+
+        ref.set(msg).addOnSuccessListener(v -> {
+            cancelReply();
+            ref.update("status", 1);
+            Toast.makeText(this, "Sent!", Toast.LENGTH_SHORT).show();
+        }).addOnFailureListener(e ->
+                Toast.makeText(this, "Send failed", Toast.LENGTH_SHORT).show());
     }
 
     private void loadMessages() {
-        // Инициализируем слушатель и сохраняем его в chatListener
         chatListener = db.collection("Chats").document(chatId)
                 .collection("Messages")
                 .orderBy("timestamp", Query.Direction.ASCENDING)
                 .addSnapshotListener((value, e) -> {
-                    if (e != null) {
-                        Log.e("ChatActivity", "Listen failed", e);
-                        return;
-                    }
-
+                    if (e != null) { Log.e(TAG, "Listen failed", e); return; }
                     if (value != null) {
                         messageList.clear();
                         for (DocumentSnapshot doc : value.getDocuments()) {
                             Message msg = doc.toObject(Message.class);
                             if (msg != null) {
                                 messageList.add(msg);
-
-                                // Логика "Птичек": если сообщение чужое и я сейчас в этой Activity
-                                if (!msg.senderId.equals(currentUserId) && msg.status < 2) {
+                                if (!msg.senderId.equals(currentUserId) && msg.status < 2)
                                     doc.getReference().update("status", 2);
-                                }
                             }
                         }
                         adapter.notifyDataSetChanged();
-                        if (messageList.size() > 0) {
+                        if (!messageList.isEmpty())
                             recyclerView.scrollToPosition(messageList.size() - 1);
-                        }
                     }
                 });
     }
 
-    // Этот метод вызывается, когда пользователь выходит из чата
-    @Override
-    protected void onStop() {
-        super.onStop();
-        // Удаляем слушателя, чтобы статусы не обновлялись в фоне
-        if (chatListener != null) {
-            chatListener.remove();
-            chatListener = null;
-        }
-    }
+    // ── Swipe to Reply ──────────────────────────────────────────────────────
 
     private void setupSwipeReply() {
         new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
-            @Override
-            public boolean onMove(@NonNull RecyclerView rv, @NonNull RecyclerView.ViewHolder vh, @NonNull RecyclerView.ViewHolder t) {
-                return false;
-            }
-
-            @Override
-            public void onSwiped(@NonNull RecyclerView.ViewHolder vh, int dir) {
-                int position = vh.getAdapterPosition();
-                Message m = messageList.get(position);
-
-                // Если сообщение удалено, сбрасываем свайп и ничего не делаем
-                if ("deleted".equals(m.type)) {
-                    adapter.notifyItemChanged(position);
-                } else {
-                    // Если живое — вызываем реплай
-                    onReply(m);
-                    adapter.notifyItemChanged(position);
-                }
+            @Override public boolean onMove(@NonNull RecyclerView rv,
+                                            @NonNull RecyclerView.ViewHolder vh,
+                                            @NonNull RecyclerView.ViewHolder t) { return false; }
+            @Override public void onSwiped(@NonNull RecyclerView.ViewHolder vh, int dir) {
+                int pos = vh.getAdapterPosition();
+                Message m = messageList.get(pos);
+                if (!"deleted".equals(m.type)) onReply(m);
+                adapter.notifyItemChanged(pos);
             }
         }).attachToRecyclerView(recyclerView);
     }
 
+    // ── MessageActionListener ───────────────────────────────────────────────
+
     @Override public void onReply(Message m) {
         replyMessage = m;
         layoutReply.setVisibility(View.VISIBLE);
-        tvReplyPreview.setText(m.text);
+        tvReplyPreview.setText(
+                ("image".equals(m.type) || "document".equals(m.type))
+                        ? "📎 " + (m.fileName != null ? m.fileName : "Attachment")
+                        : m.text);
     }
 
     public void cancelReply(View v) { cancelReply(); }
@@ -225,26 +469,25 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
     }
 
     @Override public void onEdit(Message m) {
+        if (!"text".equals(m.type)) {
+            Toast.makeText(this, "Cannot edit attachments", Toast.LENGTH_SHORT).show();
+            return;
+        }
         editingId = m.messageId;
         etMessage.setText(m.text);
         etMessage.requestFocus();
     }
 
     private void commitEdit(String t) {
-        db.collection("Chats").document(chatId).collection("Messages").document(editingId)
-                .update("text", t, "edited", true).addOnSuccessListener(v -> {
-                    editingId = null;
-                    etMessage.setText("");
-                });
+        db.collection("Chats").document(chatId)
+                .collection("Messages").document(editingId)
+                .update("text", t, "edited", true)
+                .addOnSuccessListener(v -> { editingId = null; etMessage.setText(""); });
     }
 
-    @Override
-    public void onDelete(Message m) {
-        db.collection("Chats").document(chatId).collection("Messages").document(m.messageId)
-                .update(
-                        "type", "deleted",
-                        "text", "Message deleted",
-                        "replyToText", null // Убираем реплай, чтобы он не висел над удаленным сообщением
-                );
+    @Override public void onDelete(Message m) {
+        db.collection("Chats").document(chatId)
+                .collection("Messages").document(m.messageId)
+                .update("type", "deleted", "text", "Message deleted", "replyToText", null);
     }
 }
