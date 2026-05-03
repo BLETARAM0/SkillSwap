@@ -2,6 +2,8 @@ package aram.kocharyan.skillswap;
 
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.view.SurfaceView;
 import android.view.View;
@@ -55,36 +57,37 @@ public class VideoCallActivity extends AppCompatActivity {
         @Override
         public void onUserJoined(int uid, int elapsed) {
             android.util.Log.d("AGORA", "onUserJoined uid=" + uid);
-            runOnUiThread(() -> setupRemoteVideo(uid));
+            runOnUiThread(() -> {
+                playConnectSound();
+                setupRemoteVideo(uid);
+            });
         }
 
         @Override
         public void onUserOffline(int uid, int reason) {
             android.util.Log.d("AGORA", "onUserOffline uid=" + uid);
             runOnUiThread(() -> {
+                playDisconnectSound();
                 flRemoteVideo.removeAllViews();
+                flRemoteVideo.setBackgroundColor(Color.BLACK);
                 Toast.makeText(VideoCallActivity.this, "Call ended", Toast.LENGTH_SHORT).show();
-                cleanupAndFinish();
+                // Небольшая задержка чтобы звук успел проиграть
+                new android.os.Handler().postDelayed(() -> cleanupAndFinish(), 1000);
             });
         }
 
         @Override
         public void onJoinChannelSuccess(String channel, int uid, int elapsed) {
-            android.util.Log.d("AGORA", "onJoinChannelSuccess uid=" + uid + " channel=" + channel);
-            runOnUiThread(() ->
-                    Toast.makeText(VideoCallActivity.this, "Connected ✓", Toast.LENGTH_SHORT).show());
+            android.util.Log.d("AGORA", "onJoinChannelSuccess uid=" + uid);
         }
 
         @Override
         public void onRemoteVideoStateChanged(int uid, int state, int reason, int elapsed) {
-            android.util.Log.d("AGORA", "onRemoteVideoStateChanged uid=" + uid + " state=" + state);
             runOnUiThread(() -> {
                 if (state == Constants.REMOTE_VIDEO_STATE_DECODING) {
-                    // Видео включено — показываем
                     setupRemoteVideo(uid);
                 } else if (state == Constants.REMOTE_VIDEO_STATE_STOPPED
                         || state == Constants.REMOTE_VIDEO_STATE_FROZEN) {
-                    // Видео выключено — чёрный экран
                     flRemoteVideo.removeAllViews();
                     flRemoteVideo.setBackgroundColor(Color.BLACK);
                 }
@@ -96,6 +99,26 @@ public class VideoCallActivity extends AppCompatActivity {
             android.util.Log.e("AGORA", "onError err=" + err);
         }
     };
+
+    // ── Sounds ──────────────────────────────────────────────────────────────
+
+    private void playConnectSound() {
+        try {
+            ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80);
+            // Два коротких бипа — сигнал подключения
+            tg.startTone(ToneGenerator.TONE_PROP_BEEP2, 400);
+            new android.os.Handler().postDelayed(tg::release, 600);
+        } catch (Exception ignored) {}
+    }
+
+    private void playDisconnectSound() {
+        try {
+            ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80);
+            // Один длинный низкий бип — сигнал отключения
+            tg.startTone(ToneGenerator.TONE_SUP_BUSY, 800);
+            new android.os.Handler().postDelayed(tg::release, 1000);
+        } catch (Exception ignored) {}
+    }
 
     // ── Lifecycle ───────────────────────────────────────────────────────────
 
@@ -117,7 +140,6 @@ public class VideoCallActivity extends AppCompatActivity {
         btnCamera     = findViewById(R.id.btnCamera);
         btnEndCall    = findViewById(R.id.btnEndCall);
 
-        // Изначально чёрный экран пока собеседник не подключился
         flRemoteVideo.setBackgroundColor(Color.BLACK);
 
         btnEndCall.setOnClickListener(v -> endCall());
@@ -133,12 +155,10 @@ public class VideoCallActivity extends AppCompatActivity {
         btnCamera.setOnClickListener(v -> {
             isCameraOn = !isCameraOn;
             rtcEngine.muteLocalVideoStream(!isCameraOn);
-            // Скрываем/показываем своё видео
             flLocalVideo.setVisibility(isCameraOn ? View.VISIBLE : View.INVISIBLE);
             btnCamera.setImageResource(isCameraOn
                     ? android.R.drawable.ic_menu_camera
                     : android.R.drawable.ic_menu_close_clear_cancel);
-            // Agora сам отправит onRemoteVideoStateChanged собеседнику
         });
 
         listenForCallEnd();
@@ -177,11 +197,12 @@ public class VideoCallActivity extends AppCompatActivity {
     // ── End Call ────────────────────────────────────────────────────────────
 
     private void endCall() {
+        playDisconnectSound();
         if (currentUserId != null)
             db.collection("Calls").document(currentUserId).delete();
         if (otherUserId != null)
             db.collection("Calls").document(otherUserId).delete();
-        cleanupAndFinish();
+        new android.os.Handler().postDelayed(this::cleanupAndFinish, 600);
     }
 
     private void cleanupAndFinish() {

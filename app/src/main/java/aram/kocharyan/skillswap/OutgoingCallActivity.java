@@ -3,6 +3,8 @@ package aram.kocharyan.skillswap;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.os.Handler;
 import android.widget.TextView;
@@ -16,8 +18,8 @@ import com.google.firebase.firestore.ListenerRegistration;
 
 public class OutgoingCallActivity extends AppCompatActivity {
 
-    private static final int PERMISSION_REQ  = 44;
-    private static final int TIMEOUT_MS      = 24000; // 24 секунды
+    private static final int PERMISSION_REQ = 44;
+    private static final int TIMEOUT_MS     = 24000;
     private static final String[] PERMISSIONS = {
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO
@@ -29,11 +31,29 @@ public class OutgoingCallActivity extends AppCompatActivity {
     private final Handler timeoutHandler = new Handler();
     private boolean callEnded = false;
 
-    // Runnable который сработает через 24 секунды
+    // Гудки
+    private ToneGenerator toneGenerator;
+    private final Handler dialToneHandler = new Handler();
+    private boolean dialToneRunning = false;
+
+    // Таймаут 24 секунды
     private final Runnable timeoutRunnable = () -> {
         if (!callEnded) {
             callEnded = true;
             cancelCall();
+        }
+    };
+
+    // Гудок каждые 3 секунды: 1 сек играет, 2 сек пауза
+    private final Runnable dialToneRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!dialToneRunning) return;
+            try {
+                if (toneGenerator != null)
+                    toneGenerator.startTone(ToneGenerator.TONE_SUP_DIAL, 1000);
+            } catch (Exception ignored) {}
+            dialToneHandler.postDelayed(this, 3000);
         }
     };
 
@@ -57,16 +77,38 @@ public class OutgoingCallActivity extends AppCompatActivity {
             cancelCall();
         });
 
-        // Запрашиваем разрешения заранее
         if (!checkPermissions()) {
             ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_REQ);
         }
 
-        // Запускаем таймаут 24 секунды
+        startDialTone();
         timeoutHandler.postDelayed(timeoutRunnable, TIMEOUT_MS);
-
         listenForCallStatus();
     }
+
+    // ── Dial Tone ───────────────────────────────────────────────────────────
+
+    private void startDialTone() {
+        try {
+            toneGenerator = new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80);
+            dialToneRunning = true;
+            dialToneHandler.post(dialToneRunnable);
+        } catch (Exception ignored) {}
+    }
+
+    private void stopDialTone() {
+        dialToneRunning = false;
+        dialToneHandler.removeCallbacks(dialToneRunnable);
+        try {
+            if (toneGenerator != null) {
+                toneGenerator.stopTone();
+                toneGenerator.release();
+                toneGenerator = null;
+            }
+        } catch (Exception ignored) {}
+    }
+
+    // ── Permissions ─────────────────────────────────────────────────────────
 
     private boolean checkPermissions() {
         for (String perm : PERMISSIONS) {
@@ -76,6 +118,8 @@ public class OutgoingCallActivity extends AppCompatActivity {
         return true;
     }
 
+    // ── Status Listener ─────────────────────────────────────────────────────
+
     private void listenForCallStatus() {
         statusListener = db.collection("Calls").document(currentUserId)
                 .addSnapshotListener((snapshot, e) -> {
@@ -83,6 +127,7 @@ public class OutgoingCallActivity extends AppCompatActivity {
 
                     if (snapshot == null || !snapshot.exists()) {
                         callEnded = true;
+                        stopDialTone();
                         timeoutHandler.removeCallbacks(timeoutRunnable);
                         finish();
                         return;
@@ -92,14 +137,13 @@ public class OutgoingCallActivity extends AppCompatActivity {
 
                     if ("accepted".equals(status)) {
                         callEnded = true;
+                        stopDialTone();
                         timeoutHandler.removeCallbacks(timeoutRunnable);
-                        if (statusListener != null) {
-                            statusListener.remove();
-                            statusListener = null;
-                        }
+                        if (statusListener != null) { statusListener.remove(); statusListener = null; }
                         openVideoCall();
                     } else if ("declined".equals(status)) {
                         callEnded = true;
+                        stopDialTone();
                         timeoutHandler.removeCallbacks(timeoutRunnable);
                         db.collection("Calls").document(currentUserId).delete();
                         finish();
@@ -117,6 +161,7 @@ public class OutgoingCallActivity extends AppCompatActivity {
     }
 
     private void cancelCall() {
+        stopDialTone();
         timeoutHandler.removeCallbacks(timeoutRunnable);
         if (otherUserId != null)
             db.collection("Calls").document(otherUserId).delete();
@@ -128,6 +173,7 @@ public class OutgoingCallActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        stopDialTone();
         timeoutHandler.removeCallbacks(timeoutRunnable);
         if (statusListener != null) statusListener.remove();
     }
