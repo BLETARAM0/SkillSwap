@@ -1,6 +1,9 @@
 package aram.kocharyan.skillswap;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 
@@ -128,5 +131,22 @@ public class MainActivity extends AppCompatActivity {
             bottomNav.setVisibility(View.VISIBLE);
             bottomNav.setSelectedItemId(R.id.nav_home);
         }
+    }
+
+    public void updateNavColor() {
+        SharedPreferences prefs = getSharedPreferences("ThemePrefs", MODE_PRIVATE);
+        String hexColor = prefs.getString("selected_color", "#2196F3"); // синий по дефолту
+        int color = Color.parseColor(hexColor);
+
+        int[][] states = new int[][] {
+                new int[] { android.R.attr.state_checked }, // нажата
+                new int[] { -android.R.attr.state_checked } // не нажата
+        };
+
+        int[] colors = new int[] { color, Color.GRAY };
+        ColorStateList csl = new ColorStateList(states, colors);
+
+        bottomNav.setItemIconTintList(csl);
+        bottomNav.setItemTextColor(csl);
     }
 }

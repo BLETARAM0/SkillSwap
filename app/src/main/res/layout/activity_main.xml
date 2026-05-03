@@ -21,6 +21,6 @@
         android:background="#FFFFFF"
         app:menu="@menu/bottom_nav_menu"
         app:labelVisibilityMode="labeled"
-        app:itemIconTint="#2196F3"
-        app:itemTextColor="#000000"/>
+        app:itemIconTint="@color/bottom_nav_colors"
+        app:itemTextColor="@color/bottom_nav_colors"/>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
