@@ -9,16 +9,21 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 public class MainActivity extends AppCompatActivity {
 
     private BottomNavigationView bottomNav;
+    private ListenerRegistration callListener;
+    private FirebaseFirestore db;
+    private String currentUserId;
+    private boolean incomingCallShown = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // If not authenticated — go to Register
         if (FirebaseAuth.getInstance().getCurrentUser() == null) {
             startActivity(new Intent(this, Register.class));
             finish();
@@ -27,9 +32,11 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
+        currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        db = FirebaseFirestore.getInstance();
+
         bottomNav = findViewById(R.id.bottomNavigationView);
 
-        // Setup bottom nav listener
         bottomNav.setOnItemSelectedListener(item -> {
             Fragment selectedFragment = null;
             int id = item.getItemId();
@@ -55,9 +62,7 @@ public class MainActivity extends AppCompatActivity {
             return true;
         });
 
-        // Check if need to show mode select
         boolean showModeSelect = getIntent().getBooleanExtra("show_mode_select", false);
-
         Fragment firstFragment = showModeSelect ? new ModeSelectFragment() : new HomeFragment();
 
         getSupportFragmentManager()
@@ -65,14 +70,59 @@ public class MainActivity extends AppCompatActivity {
                 .replace(R.id.container, firstFragment)
                 .commit();
 
-        // Manage bottom nav visibility
         bottomNav.setVisibility(showModeSelect ? View.GONE : View.VISIBLE);
         if (!showModeSelect) {
             bottomNav.setSelectedItemId(R.id.nav_home);
         }
+
+        listenForIncomingCalls();
     }
 
-    // Method to show bottom nav (called from SkillsSelectFragment)
+    // ── Incoming Call Listener ──────────────────────────────────────────────
+
+    private void listenForIncomingCalls() {
+        callListener = db.collection("Calls")
+                .document(currentUserId)
+                .addSnapshotListener((snapshot, e) -> {
+                    if (e != null || snapshot == null || !snapshot.exists()) {
+                        incomingCallShown = false;
+                        return;
+                    }
+
+                    String status     = snapshot.getString("status");
+                    String callId     = snapshot.getString("callId");
+                    String callerId   = snapshot.getString("callerId");
+                    String callerName = snapshot.getString("callerName");
+
+                    // Показываем экран только один раз пока статус "calling"
+                    if ("calling".equals(status) && callId != null && !incomingCallShown) {
+                        incomingCallShown = true;
+                        Intent intent = new Intent(this, IncomingCallActivity.class);
+                        intent.putExtra("callId",     callId);
+                        intent.putExtra("callerId",   callerId);
+                        intent.putExtra("callerName", callerName);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    }
+
+                    if (!"calling".equals(status)) {
+                        incomingCallShown = false;
+                    }
+                });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        incomingCallShown = false; // сбрасываем флаг когда возвращаемся
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (callListener != null) callListener.remove();
+    }
+
     public void showBottomNavigation() {
         if (bottomNav != null) {
             bottomNav.setVisibility(View.VISIBLE);

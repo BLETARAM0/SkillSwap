@@ -21,6 +21,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -47,23 +48,25 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class ChatActivity extends AppCompatActivity implements MessageAdapter.MessageActionListener {
 
     private static final String TAG = "ChatActivity";
 
     // ── Cloudinary ──────────────────────────────────────────────────────────
-    private static final String CLOUD_NAME     = "dium7pqky";
-    private static final String UPLOAD_PRESET  = "SkillSwap";
-    private static final String UPLOAD_URL     =
+    private static final String CLOUD_NAME    = "dium7pqky";
+    private static final String UPLOAD_PRESET = "SkillSwap";
+    private static final String UPLOAD_URL    =
             "https://api.cloudinary.com/v1_1/" + CLOUD_NAME + "/auto/upload";
 
     // ── UI ──────────────────────────────────────────────────────────────────
     private RecyclerView recyclerView;
     private EditText etMessage;
-    private ImageButton btnSend, btnAttach;
+    private ImageButton btnSend, btnAttach, btnVideoCall;
     private TextView tvReplyPreview;
     private View layoutReply;
 
@@ -71,7 +74,8 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
     private MessageAdapter adapter;
     private final List<Message> messageList = new ArrayList<>();
     private FirebaseFirestore db;
-    private String currentUserId, chatId;
+    private String currentUserId, chatId, otherUserId;
+    private String currentUserName = "User";
     private String editingId = null;
     private Message replyMessage = null;
     private ListenerRegistration chatListener;
@@ -116,6 +120,14 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
                 else Toast.makeText(this, "Storage permission denied", Toast.LENGTH_SHORT).show();
             });
 
+    private final ActivityResultLauncher<String[]> callPermLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                boolean cam = Boolean.TRUE.equals(result.get(android.Manifest.permission.CAMERA));
+                boolean mic = Boolean.TRUE.equals(result.get(android.Manifest.permission.RECORD_AUDIO));
+                if (cam && mic) startVideoCall();
+                else Toast.makeText(this, "Camera and microphone permission required", Toast.LENGTH_SHORT).show();
+            });
+
     // ── Lifecycle ───────────────────────────────────────────────────────────
 
     @Override
@@ -123,8 +135,9 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        chatId = getIntent().getStringExtra("chatId");
-        db = FirebaseFirestore.getInstance();
+        chatId      = getIntent().getStringExtra("chatId");
+        otherUserId = getIntent().getStringExtra("otherUserId");
+        db          = FirebaseFirestore.getInstance();
 
         if (FirebaseAuth.getInstance().getCurrentUser() == null) {
             Toast.makeText(this, "Not authorized", Toast.LENGTH_SHORT).show();
@@ -133,9 +146,19 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         }
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
+        // Загружаем своё имя для звонка
+        db.collection("Users").document(currentUserId).get().addOnSuccessListener(doc -> {
+            if (doc.exists()) {
+                String name    = doc.getString("name");
+                String surname = doc.getString("surname");
+                if (name != null) currentUserName = name + (surname != null ? " " + surname : "");
+            }
+        });
+
         initViews();
         loadOtherUserName();
         setupSendButton();
+        setupVideoCallButton();
         setupSwipeReply();
         loadMessages();
     }
@@ -158,6 +181,7 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         layoutReply    = findViewById(R.id.layoutReplyPreview);
         tvReplyPreview = findViewById(R.id.tvReplyPreviewText);
         btnAttach      = findViewById(R.id.btnAttach);
+        btnVideoCall   = findViewById(R.id.btnVideoCall);
 
         adapter = new MessageAdapter(messageList, currentUserId, this);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -181,8 +205,64 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         if (btnBack != null) btnBack.setOnClickListener(v -> finish());
     }
 
+    // ── Video Call ──────────────────────────────────────────────────────────
+
+    private void setupVideoCallButton() {
+        if (btnVideoCall == null) return;
+        btnVideoCall.setOnClickListener(v -> checkCallPermissionsAndStart());
+    }
+
+    private void checkCallPermissionsAndStart() {
+        boolean hasCam = ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        boolean hasMic = ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        if (hasCam && hasMic) {
+            startVideoCall();
+        } else {
+            callPermLauncher.launch(new String[]{android.Manifest.permission.CAMERA, android.Manifest.permission.RECORD_AUDIO});
+        }
+    }
+
+    private void startVideoCall() {
+        if (otherUserId == null) return;
+
+        String callId = (currentUserId.compareTo(otherUserId) < 0)
+                ? currentUserId + "_" + otherUserId
+                : otherUserId + "_" + currentUserId;
+
+        TextView tvUserName = findViewById(R.id.tvUserName);
+        String calleeName = tvUserName != null ? tvUserName.getText().toString() : "";
+
+        // Документ для получателя
+        Map<String, Object> callDataReceiver = new HashMap<>();
+        callDataReceiver.put("callId",     callId);
+        callDataReceiver.put("callerId",   currentUserId);
+        callDataReceiver.put("callerName", currentUserName);
+        callDataReceiver.put("status",     "calling");
+
+        // Документ для себя — слушаем статус accepted/declined
+        Map<String, Object> callDataSelf = new HashMap<>();
+        callDataSelf.put("callId",      callId);
+        callDataSelf.put("otherUserId", otherUserId);
+        callDataSelf.put("status",      "calling");
+
+        db.collection("Calls").document(otherUserId).set(callDataReceiver);
+        db.collection("Calls").document(currentUserId)
+                .set(callDataSelf)
+                .addOnSuccessListener(v -> {
+                    Intent intent = new Intent(this, OutgoingCallActivity.class);
+                    intent.putExtra("callId",      callId);
+                    intent.putExtra("currentUid",  currentUserId);
+                    intent.putExtra("otherUserId", otherUserId);
+                    intent.putExtra("calleeName",  calleeName);
+                    startActivity(intent);
+                })
+                .addOnFailureListener(e ->
+                        Toast.makeText(this, "Could not start call", Toast.LENGTH_SHORT).show());
+    }
+
+    // ── Other User Name ─────────────────────────────────────────────────────
+
     private void loadOtherUserName() {
-        String otherUserId = getIntent().getStringExtra("otherUserId");
         if (otherUserId == null) return;
         db.collection("Users").document(otherUserId).get().addOnSuccessListener(doc -> {
             if (doc.exists()) {
@@ -193,6 +273,8 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
             }
         });
     }
+
+    // ── Send Button ─────────────────────────────────────────────────────────
 
     private void setupSendButton() {
         btnSend.setOnClickListener(v -> {
@@ -279,8 +361,8 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
     }
 
     private File createImageFile() throws IOException {
-        String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-        File dir  = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        String ts  = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        File dir   = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         return File.createTempFile("IMG_" + ts + "_", ".jpg", dir);
     }
 
@@ -301,7 +383,6 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
 
         new Thread(() -> {
             try {
-                // Читаем файл
                 InputStream is = getContentResolver().openInputStream(uri);
                 if (is == null) throw new IOException("Cannot open stream");
                 byte[] fileBytes = is.readAllBytes();
@@ -316,13 +397,9 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
                 conn.setReadTimeout(60_000);
 
                 DataOutputStream dos = new DataOutputStream(conn.getOutputStream());
-
-                // поле upload_preset
                 dos.writeBytes("--" + boundary + "\r\n");
                 dos.writeBytes("Content-Disposition: form-data; name=\"upload_preset\"\r\n\r\n");
                 dos.writeBytes(UPLOAD_PRESET + "\r\n");
-
-                // поле file
                 dos.writeBytes("--" + boundary + "\r\n");
                 dos.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\""
                         + fileName + "\"\r\n");
@@ -349,7 +426,6 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
                     runOnUiThread(() ->
                             Toast.makeText(this, "Upload failed (" + code + ")", Toast.LENGTH_LONG).show());
                 }
-
             } catch (Exception e) {
                 Log.e(TAG, "Upload error", e);
                 runOnUiThread(() ->

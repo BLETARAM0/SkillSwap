@@ -25,14 +25,14 @@ public class Register extends AppCompatActivity {
         setContentView(R.layout.activity_register);
 
         auth = FirebaseAuth.getInstance();
-        db = FirebaseFirestore.getInstance();
+        db   = FirebaseFirestore.getInstance();
 
-        etName = findViewById(R.id.etName);
-        etSurname = findViewById(R.id.etSurname);
-        etEmail = findViewById(R.id.etEmail);
+        etName     = findViewById(R.id.etName);
+        etSurname  = findViewById(R.id.etSurname);
+        etEmail    = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
         btnRegister = findViewById(R.id.btnRegister);
-        btnGoLogin = findViewById(R.id.btnGoLogin);
+        btnGoLogin  = findViewById(R.id.btnGoLogin);
 
         btnRegister.setOnClickListener(v -> registerUser());
 
@@ -43,9 +43,9 @@ public class Register extends AppCompatActivity {
     }
 
     private void registerUser() {
-        String name = etName.getText().toString().trim();
-        String surname = etSurname.getText().toString().trim();
-        String email = etEmail.getText().toString().trim();
+        String name     = etName.getText().toString().trim();
+        String surname  = etSurname.getText().toString().trim();
+        String email    = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
 
         if (name.isEmpty() || surname.isEmpty() || email.isEmpty() || password.isEmpty()) {
@@ -62,7 +62,8 @@ public class Register extends AppCompatActivity {
         auth.createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
-                        String userId = auth.getCurrentUser().getUid();
+                        String userId  = auth.getCurrentUser().getUid();
+                        String fullName = name + " " + surname;
 
                         AppUser user = new AppUser(userId, name, surname, email, "", "", "", "", "");
 
@@ -70,6 +71,10 @@ public class Register extends AppCompatActivity {
                                 .document(userId)
                                 .set(user)
                                 .addOnSuccessListener(aVoid -> {
+
+                                    // ── Инициализация Zegocloud ──
+                                    SkillSwapApp.initZegoCall(this, userId, fullName);
+
                                     Toast.makeText(this, "Registration successful! ✅", Toast.LENGTH_SHORT).show();
                                     Intent intent = new Intent(Register.this, MainActivity.class);
                                     intent.putExtra("show_mode_select", true);
