@@ -1,14 +1,19 @@
 package aram.kocharyan.skillswap;
 
+import android.animation.ObjectAnimator;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.os.Bundle;
+import android.os.Handler;
+import android.view.MotionEvent;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -34,10 +39,25 @@ public class VideoCallActivity extends AppCompatActivity {
             android.Manifest.permission.CAMERA,
             android.Manifest.permission.RECORD_AUDIO
     };
+    private static final int MARGIN_DP = 16;
 
     // UI
     private FrameLayout flRemoteVideo, flLocalVideo;
-    private ImageButton btnMute, btnCamera, btnEndCall;
+    private LinearLayout controlsPanel;
+    private ImageButton btnMute, btnCamera, btnEndCall, btnFlipCamera;
+    private boolean controlsVisible = true;
+
+    // Drag state
+    private float dragStartX, dragStartY;
+    private float viewStartX, viewStartY;
+    private boolean isDragging = false;
+
+    // Swap state — false = локальное в flLocalVideo (маленькое), remote в flRemoteVideo (большое)
+    private boolean isSwapped = false;
+    private int remoteUid = -1;
+
+    // Camera state
+    private boolean isFrontCamera = true;
 
     // Agora
     private RtcEngine rtcEngine;
@@ -56,67 +76,77 @@ public class VideoCallActivity extends AppCompatActivity {
 
         @Override
         public void onUserJoined(int uid, int elapsed) {
-            android.util.Log.d("AGORA", "onUserJoined uid=" + uid);
             runOnUiThread(() -> {
+                remoteUid = uid;
                 playConnectSound();
-                setupRemoteVideo(uid);
+                renderRemoteVideo(uid);
             });
         }
 
         @Override
         public void onUserOffline(int uid, int reason) {
-            android.util.Log.d("AGORA", "onUserOffline uid=" + uid);
             runOnUiThread(() -> {
+                remoteUid = -1;
                 playDisconnectSound();
-                flRemoteVideo.removeAllViews();
-                flRemoteVideo.setBackgroundColor(Color.BLACK);
+                getRemoteContainer().removeAllViews();
+                getRemoteContainer().setBackgroundColor(Color.BLACK);
                 Toast.makeText(VideoCallActivity.this, "Call ended", Toast.LENGTH_SHORT).show();
-                // Небольшая задержка чтобы звук успел проиграть
-                new android.os.Handler().postDelayed(() -> cleanupAndFinish(), 1000);
+                new Handler().postDelayed(() -> cleanupAndFinish(), 1000);
             });
         }
 
         @Override
         public void onJoinChannelSuccess(String channel, int uid, int elapsed) {
-            android.util.Log.d("AGORA", "onJoinChannelSuccess uid=" + uid);
+            android.util.Log.d("AGORA", "joined uid=" + uid);
         }
 
         @Override
         public void onRemoteVideoStateChanged(int uid, int state, int reason, int elapsed) {
             runOnUiThread(() -> {
                 if (state == Constants.REMOTE_VIDEO_STATE_DECODING) {
-                    setupRemoteVideo(uid);
+                    remoteUid = uid;
+                    renderRemoteVideo(uid);
                 } else if (state == Constants.REMOTE_VIDEO_STATE_STOPPED
                         || state == Constants.REMOTE_VIDEO_STATE_FROZEN) {
-                    flRemoteVideo.removeAllViews();
-                    flRemoteVideo.setBackgroundColor(Color.BLACK);
+                    getRemoteContainer().removeAllViews();
+                    getRemoteContainer().setBackgroundColor(Color.BLACK);
                 }
             });
         }
 
         @Override
         public void onError(int err) {
-            android.util.Log.e("AGORA", "onError err=" + err);
+            android.util.Log.e("AGORA", "err=" + err);
         }
     };
+
+    // ── Helpers — какой контейнер локальный/удалённый ───────────────────────
+
+    /** Контейнер где сейчас показывается локальное видео */
+    private FrameLayout getLocalContainer() {
+        return isSwapped ? flRemoteVideo : flLocalVideo;
+    }
+
+    /** Контейнер где сейчас показывается удалённое видео */
+    private FrameLayout getRemoteContainer() {
+        return isSwapped ? flLocalVideo : flRemoteVideo;
+    }
 
     // ── Sounds ──────────────────────────────────────────────────────────────
 
     private void playConnectSound() {
         try {
             ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80);
-            // Два коротких бипа — сигнал подключения
             tg.startTone(ToneGenerator.TONE_PROP_BEEP2, 400);
-            new android.os.Handler().postDelayed(tg::release, 600);
+            new Handler().postDelayed(tg::release, 600);
         } catch (Exception ignored) {}
     }
 
     private void playDisconnectSound() {
         try {
             ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80);
-            // Один длинный низкий бип — сигнал отключения
             tg.startTone(ToneGenerator.TONE_SUP_BUSY, 800);
-            new android.os.Handler().postDelayed(tg::release, 1000);
+            new Handler().postDelayed(tg::release, 1000);
         } catch (Exception ignored) {}
     }
 
@@ -134,13 +164,21 @@ public class VideoCallActivity extends AppCompatActivity {
 
         localUid = Math.abs(currentUserId.hashCode()) % 100000 + 1;
 
-        flRemoteVideo = findViewById(R.id.flRemoteVideo);
-        flLocalVideo  = findViewById(R.id.flLocalVideo);
-        btnMute       = findViewById(R.id.btnMute);
-        btnCamera     = findViewById(R.id.btnCamera);
-        btnEndCall    = findViewById(R.id.btnEndCall);
+        flRemoteVideo  = findViewById(R.id.flRemoteVideo);
+        flLocalVideo   = findViewById(R.id.flLocalVideo);
+        controlsPanel  = findViewById(R.id.controlsPanel);
+        btnMute        = findViewById(R.id.btnMute);
+        btnCamera      = findViewById(R.id.btnCamera);
+        btnEndCall     = findViewById(R.id.btnEndCall);
+        btnFlipCamera  = findViewById(R.id.btnFlipCamera);
 
         flRemoteVideo.setBackgroundColor(Color.BLACK);
+
+        // Клик на большой экран — скрыть/показать панель
+        flRemoteVideo.setOnClickListener(v -> toggleControls());
+
+        // Перетаскивание + клик на маленькое окошко
+        setupDraggable();
 
         btnEndCall.setOnClickListener(v -> endCall());
 
@@ -155,30 +193,141 @@ public class VideoCallActivity extends AppCompatActivity {
         btnCamera.setOnClickListener(v -> {
             isCameraOn = !isCameraOn;
             rtcEngine.muteLocalVideoStream(!isCameraOn);
-            flLocalVideo.setVisibility(isCameraOn ? View.VISIBLE : View.INVISIBLE);
+            getLocalContainer().setVisibility(isCameraOn ? View.VISIBLE : View.INVISIBLE);
             btnCamera.setImageResource(isCameraOn
                     ? android.R.drawable.ic_menu_camera
                     : android.R.drawable.ic_menu_close_clear_cancel);
         });
 
+        // Переворот камеры
+        btnFlipCamera.setOnClickListener(v -> flipCamera());
+
         listenForCallEnd();
 
-        if (checkPermissions()) {
-            initAgora();
-        } else {
-            ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_REQ);
-        }
+        if (checkPermissions()) initAgora();
+        else ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_REQ);
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (callEndListener != null) callEndListener.remove();
-        if (rtcEngine != null) {
-            rtcEngine.leaveChannel();
-            RtcEngine.destroy();
-            rtcEngine = null;
+    // ── Flip Camera ─────────────────────────────────────────────────────────
+
+    private void flipCamera() {
+        if (rtcEngine == null) return;
+        isFrontCamera = !isFrontCamera;
+        rtcEngine.switchCamera();
+
+        // Анимация вращения иконки
+        btnFlipCamera.animate().rotationBy(180f).setDuration(300).start();
+    }
+
+    // ── Toggle Controls ─────────────────────────────────────────────────────
+
+    private void toggleControls() {
+        controlsVisible = !controlsVisible;
+        controlsPanel.animate()
+                .alpha(controlsVisible ? 1f : 0f)
+                .setDuration(250)
+                .withEndAction(() -> {
+                    if (!controlsVisible)
+                        controlsPanel.setVisibility(View.INVISIBLE);
+                })
+                .start();
+        if (controlsVisible) controlsPanel.setVisibility(View.VISIBLE);
+    }
+
+    // ── Swap Videos ─────────────────────────────────────────────────────────
+
+    private void swapVideos() {
+        isSwapped = !isSwapped;
+
+        // Локальное видео — всегда в getLocalContainer()
+        SurfaceView localView = new SurfaceView(this);
+        boolean localIsSmall = !isSwapped; // маленькое когда НЕ свапнуто
+        if (localIsSmall) localView.setZOrderMediaOverlay(true);
+        FrameLayout localContainer = getLocalContainer();
+        localContainer.removeAllViews();
+        localContainer.addView(localView);
+        rtcEngine.setupLocalVideo(new VideoCanvas(localView,
+                VideoCanvas.RENDER_MODE_HIDDEN, localUid));
+
+        // Удалённое видео — всегда в getRemoteContainer()
+        if (remoteUid != -1) {
+            renderRemoteVideo(remoteUid);
         }
+
+        // Клик на маленькое окошко (всегда flLocalVideo физически)
+        // — но теперь swap работает в обе стороны
+    }
+
+    // ── Render Videos ───────────────────────────────────────────────────────
+
+    private void renderRemoteVideo(int uid) {
+        if (uid == localUid) return;
+        FrameLayout container = getRemoteContainer();
+        SurfaceView remoteView = new SurfaceView(this);
+        container.removeAllViews();
+        container.setBackgroundColor(Color.TRANSPARENT);
+        container.addView(remoteView);
+        rtcEngine.setupRemoteVideo(new VideoCanvas(remoteView,
+                VideoCanvas.RENDER_MODE_HIDDEN, uid));
+    }
+
+    // ── Drag + Snap ─────────────────────────────────────────────────────────
+
+    private void setupDraggable() {
+        flLocalVideo.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    dragStartX = event.getRawX();
+                    dragStartY = event.getRawY();
+                    viewStartX = v.getX();
+                    viewStartY = v.getY();
+                    isDragging = false;
+                    return true;
+
+                case MotionEvent.ACTION_MOVE:
+                    float dx = event.getRawX() - dragStartX;
+                    float dy = event.getRawY() - dragStartY;
+                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) isDragging = true;
+                    if (isDragging) {
+                        v.setX(viewStartX + dx);
+                        v.setY(viewStartY + dy);
+                    }
+                    return true;
+
+                case MotionEvent.ACTION_UP:
+                    if (isDragging) {
+                        snapToCorner(v);
+                    } else {
+                        // Клик — всегда свапаем в обе стороны
+                        swapVideos();
+                    }
+                    isDragging = false;
+                    return true;
+            }
+            return false;
+        });
+    }
+
+    private void snapToCorner(View v) {
+        int screenW = getResources().getDisplayMetrics().widthPixels;
+        int screenH = getResources().getDisplayMetrics().heightPixels;
+        int margin  = (int) (MARGIN_DP * getResources().getDisplayMetrics().density);
+
+        float centerX = v.getX() + v.getWidth() / 2f;
+        float centerY = v.getY() + v.getHeight() / 2f;
+
+        float targetX = (centerX < screenW / 2f) ? margin : screenW - v.getWidth() - margin;
+        float targetY = (centerY < screenH / 2f) ? margin : screenH - v.getHeight() - margin;
+
+        ObjectAnimator animX = ObjectAnimator.ofFloat(v, "x", v.getX(), targetX);
+        animX.setDuration(250);
+        animX.setInterpolator(new DecelerateInterpolator());
+        animX.start();
+
+        ObjectAnimator animY = ObjectAnimator.ofFloat(v, "y", v.getY(), targetY);
+        animY.setDuration(250);
+        animY.setInterpolator(new DecelerateInterpolator());
+        animY.start();
     }
 
     // ── Call End Listener ───────────────────────────────────────────────────
@@ -202,20 +351,28 @@ public class VideoCallActivity extends AppCompatActivity {
             db.collection("Calls").document(currentUserId).delete();
         if (otherUserId != null)
             db.collection("Calls").document(otherUserId).delete();
-        new android.os.Handler().postDelayed(this::cleanupAndFinish, 600);
+        new Handler().postDelayed(this::cleanupAndFinish, 600);
     }
 
     private void cleanupAndFinish() {
-        if (callEndListener != null) {
-            callEndListener.remove();
-            callEndListener = null;
-        }
+        if (callEndListener != null) { callEndListener.remove(); callEndListener = null; }
         if (rtcEngine != null) {
             rtcEngine.leaveChannel();
             RtcEngine.destroy();
             rtcEngine = null;
         }
         finish();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (callEndListener != null) callEndListener.remove();
+        if (rtcEngine != null) {
+            rtcEngine.leaveChannel();
+            RtcEngine.destroy();
+            rtcEngine = null;
+        }
     }
 
     // ── Permissions ─────────────────────────────────────────────────────────
@@ -239,11 +396,7 @@ public class VideoCallActivity extends AppCompatActivity {
                 if (r != PackageManager.PERMISSION_GRANTED) { allGranted = false; break; }
             }
             if (allGranted) initAgora();
-            else {
-                Toast.makeText(this, "Camera and microphone permission required",
-                        Toast.LENGTH_SHORT).show();
-                finish();
-            }
+            else { Toast.makeText(this, "Permissions required", Toast.LENGTH_SHORT).show(); finish(); }
         }
     }
 
@@ -257,18 +410,15 @@ public class VideoCallActivity extends AppCompatActivity {
             config.mEventHandler = eventHandler;
             rtcEngine = RtcEngine.create(config);
         } catch (Exception e) {
-            Toast.makeText(this, "Init failed: " + e.getMessage(),
-                    Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Init failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
             finish();
             return;
         }
 
         rtcEngine.enableVideo();
         rtcEngine.enableAudio();
-        rtcEngine.setAudioProfile(
-                Constants.AUDIO_PROFILE_DEFAULT,
-                Constants.AUDIO_SCENARIO_GAME_STREAMING
-        );
+        rtcEngine.setAudioProfile(Constants.AUDIO_PROFILE_DEFAULT,
+                Constants.AUDIO_SCENARIO_GAME_STREAMING);
         rtcEngine.setEnableSpeakerphone(true);
         rtcEngine.muteLocalVideoStream(false);
         rtcEngine.muteLocalAudioStream(false);
@@ -285,16 +435,6 @@ public class VideoCallActivity extends AppCompatActivity {
         rtcEngine.setupLocalVideo(new VideoCanvas(localView,
                 VideoCanvas.RENDER_MODE_HIDDEN, localUid));
         rtcEngine.startPreview();
-    }
-
-    private void setupRemoteVideo(int uid) {
-        if (uid == localUid) return;
-        SurfaceView remoteView = new SurfaceView(this);
-        flRemoteVideo.removeAllViews();
-        flRemoteVideo.setBackgroundColor(Color.TRANSPARENT);
-        flRemoteVideo.addView(remoteView);
-        rtcEngine.setupRemoteVideo(new VideoCanvas(remoteView,
-                VideoCanvas.RENDER_MODE_HIDDEN, uid));
     }
 
     private void joinChannel() {

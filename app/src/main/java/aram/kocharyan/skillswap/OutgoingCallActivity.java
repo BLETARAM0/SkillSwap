@@ -31,12 +31,11 @@ public class OutgoingCallActivity extends AppCompatActivity {
     private final Handler timeoutHandler = new Handler();
     private boolean callEnded = false;
 
-    // Гудки
+    // Гудки — используем STREAM_RING чтобы не конфликтовать с Agora (STREAM_VOICE_CALL)
     private ToneGenerator toneGenerator;
     private final Handler dialToneHandler = new Handler();
     private boolean dialToneRunning = false;
 
-    // Таймаут 24 секунды
     private final Runnable timeoutRunnable = () -> {
         if (!callEnded) {
             callEnded = true;
@@ -44,14 +43,14 @@ public class OutgoingCallActivity extends AppCompatActivity {
         }
     };
 
-    // Гудок каждые 3 секунды: 1 сек играет, 2 сек пауза
+    // Гудок: 1 сек играет, 2 сек пауза
     private final Runnable dialToneRunnable = new Runnable() {
         @Override
         public void run() {
             if (!dialToneRunning) return;
             try {
                 if (toneGenerator != null)
-                    toneGenerator.startTone(ToneGenerator.TONE_SUP_DIAL, 1000);
+                    toneGenerator.startTone(ToneGenerator.TONE_SUP_RINGTONE, 1000);
             } catch (Exception ignored) {}
             dialToneHandler.postDelayed(this, 3000);
         }
@@ -90,7 +89,8 @@ public class OutgoingCallActivity extends AppCompatActivity {
 
     private void startDialTone() {
         try {
-            toneGenerator = new ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80);
+            // STREAM_RING — не пересекается с STREAM_VOICE_CALL который использует Agora
+            toneGenerator = new ToneGenerator(AudioManager.STREAM_RING, 80);
             dialToneRunning = true;
             dialToneHandler.post(dialToneRunnable);
         } catch (Exception ignored) {}
@@ -98,7 +98,7 @@ public class OutgoingCallActivity extends AppCompatActivity {
 
     private void stopDialTone() {
         dialToneRunning = false;
-        dialToneHandler.removeCallbacks(dialToneRunnable);
+        dialToneHandler.removeCallbacksAndMessages(null);
         try {
             if (toneGenerator != null) {
                 toneGenerator.stopTone();
@@ -128,7 +128,7 @@ public class OutgoingCallActivity extends AppCompatActivity {
                     if (snapshot == null || !snapshot.exists()) {
                         callEnded = true;
                         stopDialTone();
-                        timeoutHandler.removeCallbacks(timeoutRunnable);
+                        timeoutHandler.removeCallbacksAndMessages(null);
                         finish();
                         return;
                     }
@@ -138,13 +138,13 @@ public class OutgoingCallActivity extends AppCompatActivity {
                     if ("accepted".equals(status)) {
                         callEnded = true;
                         stopDialTone();
-                        timeoutHandler.removeCallbacks(timeoutRunnable);
+                        timeoutHandler.removeCallbacksAndMessages(null);
                         if (statusListener != null) { statusListener.remove(); statusListener = null; }
                         openVideoCall();
                     } else if ("declined".equals(status)) {
                         callEnded = true;
                         stopDialTone();
-                        timeoutHandler.removeCallbacks(timeoutRunnable);
+                        timeoutHandler.removeCallbacksAndMessages(null);
                         db.collection("Calls").document(currentUserId).delete();
                         finish();
                     }
@@ -162,7 +162,7 @@ public class OutgoingCallActivity extends AppCompatActivity {
 
     private void cancelCall() {
         stopDialTone();
-        timeoutHandler.removeCallbacks(timeoutRunnable);
+        timeoutHandler.removeCallbacksAndMessages(null);
         if (otherUserId != null)
             db.collection("Calls").document(otherUserId).delete();
         if (currentUserId != null)
@@ -171,10 +171,16 @@ public class OutgoingCallActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        stopDialTone();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         stopDialTone();
-        timeoutHandler.removeCallbacks(timeoutRunnable);
+        timeoutHandler.removeCallbacksAndMessages(null);
         if (statusListener != null) statusListener.remove();
     }
 }

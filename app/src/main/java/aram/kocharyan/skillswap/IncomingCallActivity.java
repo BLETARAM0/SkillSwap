@@ -1,16 +1,14 @@
 package aram.kocharyan.skillswap;
 
 import android.Manifest;
-import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
-import android.media.Ringtone;
+import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -33,7 +31,9 @@ public class IncomingCallActivity extends AppCompatActivity {
     private FirebaseFirestore db;
     private String currentUserId, callerId, callId;
     private ListenerRegistration callListener;
-    private Ringtone ringtone;
+
+    // Используем MediaPlayer вместо Ringtone — надёжнее останавливается
+    private MediaPlayer ringtonePlayer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,24 +66,29 @@ public class IncomingCallActivity extends AppCompatActivity {
     private void startRingtone() {
         try {
             Uri ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-            ringtone = RingtoneManager.getRingtone(getApplicationContext(), ringtoneUri);
-            if (ringtone != null) {
-                ringtone.setAudioAttributes(new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build());
-                ringtone.play();
-            }
+            ringtonePlayer = new MediaPlayer();
+            ringtonePlayer.setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setLegacyStreamType(AudioManager.STREAM_RING)
+                    .build());
+            ringtonePlayer.setDataSource(this, ringtoneUri);
+            ringtonePlayer.setLooping(true);
+            ringtonePlayer.prepare();
+            ringtonePlayer.start();
         } catch (Exception e) {
-            // Тихо если не удалось запустить рингтон
+            ringtonePlayer = null;
         }
     }
 
     private void stopRingtone() {
-        if (ringtone != null && ringtone.isPlaying()) {
-            ringtone.stop();
-        }
-        ringtone = null;
+        try {
+            if (ringtonePlayer != null) {
+                if (ringtonePlayer.isPlaying()) ringtonePlayer.stop();
+                ringtonePlayer.release();
+                ringtonePlayer = null;
+            }
+        } catch (Exception ignored) {}
     }
 
     // ── Permissions ─────────────────────────────────────────────────────────
@@ -151,6 +156,13 @@ public class IncomingCallActivity extends AppCompatActivity {
                         finish();
                     }
                 });
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Останавливаем рингтон когда Activity уходит на фон
+        stopRingtone();
     }
 
     @Override
