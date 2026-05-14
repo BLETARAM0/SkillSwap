@@ -1,85 +1,160 @@
 <?xml version="1.0" encoding="utf-8"?>
-
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="20dp"
     android:background="#F5F5F5">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="App Theme Color"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="20dp"
-        android:textColor="#333333"/>
-
-    <GridLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:columnCount="4"
-        android:alignmentMode="alignMargins">
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- Заголовок -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="App Theme Color"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#111111"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Choose a color for the navigation bar"
+            android:textSize="14sp"
+            android:textColor="#888888"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Сетка 4x2 — 7 цветов + 1 кастомный -->
+        <GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="4"
+            android:rowCount="2"
+            android:alignmentMode="alignMargins">
+
+            <!-- Синий -->
+            <FrameLayout
+                android:id="@+id/color1"
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                android:background="@drawable/color_circle_blue"
+                android:elevation="2dp" />
+
+            <!-- Красный -->
+            <FrameLayout
+                android:id="@+id/color2"
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                android:background="@drawable/color_circle_red"
+                android:elevation="2dp" />
+
+            <!-- Зелёный -->
+            <FrameLayout
+                android:id="@+id/color3"
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                android:background="@drawable/color_circle_green"
+                android:elevation="2dp" />
+
+            <!-- Оранжевый -->
+            <FrameLayout
+                android:id="@+id/color4"
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                android:background="@drawable/color_circle_orange"
+                android:elevation="2dp" />
+
+            <!-- Фиолетовый -->
+            <FrameLayout
+                android:id="@+id/color5"
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                android:background="@drawable/color_circle_purple"
+                android:elevation="2dp" />
+
+            <!-- Бирюзовый -->
+            <FrameLayout
+                android:id="@+id/color6"
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                android:background="@drawable/color_circle_teal"
+                android:elevation="2dp" />
+
+            <!-- Чёрный -->
+            <FrameLayout
+                android:id="@+id/color7"
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                android:background="@drawable/color_circle_black"
+                android:elevation="2dp" />
+
+            <!-- Кастомный — радужный градиент -->
+            <FrameLayout
+                android:id="@+id/btnCustomColor"
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_columnWeight="1"
+                android:layout_margin="8dp"
+                android:background="@drawable/color_circle_custom"
+                android:elevation="2dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="+"
+                    android:textSize="28sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF" />
+            </FrameLayout>
+
+        </GridLayout>
+
+        <!-- Предпросмотр выбранного цвета -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Selected Color"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#333333"
+            android:layout_marginTop="32dp"
+            android:layout_marginBottom="12dp" />
 
         <View
-            android:id="@+id/color1"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_margin="8dp"
-            android:background="#2196F3" />
-        <View
-            android:id="@+id/color2"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_margin="8dp"
-            android:background="#F44336" />
-        <View
-            android:id="@+id/color3"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_margin="8dp"
-            android:background="#4CAF50" />
-        <View
-            android:id="@+id/color4"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_margin="8dp"
-            android:background="#FF9800" />
-        <View
-            android:id="@+id/color5"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_margin="8dp"
-            android:background="#9C27B0" />
-        <View
-            android:id="@+id/color6"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_margin="8dp"
-            android:background="#009688" />
-        <View
-            android:id="@+id/color7"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_margin="8dp"
-            android:background="#000000" />
+            android:id="@+id/colorPreview"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="#2196F3"
+            android:elevation="2dp" />
 
-    </GridLayout>
+        <TextView
+            android:id="@+id/tvColorHex"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="#2196F3"
+            android:textSize="14sp"
+            android:textColor="#888888"
+            android:layout_marginTop="8dp"
+            android:layout_gravity="center_horizontal" />
 
-    <Button
-        android:id="@+id/btnCustomColor"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="30dp"
-        android:text="Choose Custom Color"
-        android:textAllCaps="false" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Select a color to change the navigation bar theme."
-        android:textSize="14sp"
-        android:layout_marginTop="10dp"
-        android:textColor="#777777"/>
-</LinearLayout>
+    </LinearLayout>
+</ScrollView>
