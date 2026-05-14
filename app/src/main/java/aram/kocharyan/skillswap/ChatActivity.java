@@ -3,14 +3,17 @@ package aram.kocharyan.skillswap;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
@@ -21,7 +24,6 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -40,6 +42,7 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -67,7 +70,7 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
     private RecyclerView recyclerView;
     private EditText etMessage;
     private ImageButton btnSend, btnAttach, btnVideoCall;
-    private TextView tvReplyPreview;
+    private TextView tvReplyPreview, tvRecordingHint;
     private View layoutReply;
 
     // ── Data ────────────────────────────────────────────────────────────────
@@ -80,10 +83,17 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
     private Message replyMessage = null;
     private ListenerRegistration chatListener;
 
+    // ── Voice recording ─────────────────────────────────────────────────────
+    private MediaRecorder mediaRecorder;
+    private File voiceFile;
+    private long recordingStartTime;
+    private boolean isRecording = false;
+    private final Handler recordingHandler = new Handler();
+
     // Для камеры
     private Uri cameraImageUri;
 
-    // ── Activity Result Launchers ───────────────────────────────────────────
+    // ── Launchers ───────────────────────────────────────────────────────────
 
     private final ActivityResultLauncher<Intent> galleryLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -122,10 +132,16 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
 
     private final ActivityResultLauncher<String[]> callPermLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
-                boolean cam = Boolean.TRUE.equals(result.get(android.Manifest.permission.CAMERA));
-                boolean mic = Boolean.TRUE.equals(result.get(android.Manifest.permission.RECORD_AUDIO));
+                boolean cam = Boolean.TRUE.equals(result.get(Manifest.permission.CAMERA));
+                boolean mic = Boolean.TRUE.equals(result.get(Manifest.permission.RECORD_AUDIO));
                 if (cam && mic) startVideoCall();
                 else Toast.makeText(this, "Camera and microphone permission required", Toast.LENGTH_SHORT).show();
+            });
+
+    private final ActivityResultLauncher<String> micPermLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+                if (!granted)
+                    Toast.makeText(this, "Microphone permission required", Toast.LENGTH_SHORT).show();
             });
 
     // ── Lifecycle ───────────────────────────────────────────────────────────
@@ -146,7 +162,6 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         }
         currentUserId = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-        // Загружаем своё имя для звонка
         db.collection("Users").document(currentUserId).get().addOnSuccessListener(doc -> {
             if (doc.exists()) {
                 String name    = doc.getString("name");
@@ -166,10 +181,14 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
     @Override
     protected void onStop() {
         super.onStop();
-        if (chatListener != null) {
-            chatListener.remove();
-            chatListener = null;
-        }
+        if (chatListener != null) { chatListener.remove(); chatListener = null; }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        stopRecording(false);
+        if (adapter != null) adapter.releasePlayer();
     }
 
     // ── Init ────────────────────────────────────────────────────────────────
@@ -205,6 +224,178 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         if (btnBack != null) btnBack.setOnClickListener(v -> finish());
     }
 
+    // ── Send Button + Voice Hold ─────────────────────────────────────────────
+
+    private void setupSendButton() {
+        btnSend.setOnClickListener(v -> {
+            String txt = etMessage.getText().toString().trim();
+            if (!txt.isEmpty()) {
+                if (editingId != null) commitEdit(txt);
+                else sendTextMessage(txt);
+            }
+            // Если поле пустое — клик ничего не делает, только Hold записывает
+        });
+
+        btnSend.setOnTouchListener((v, event) -> {
+            // Голосовое только когда поле пустое
+            if (!etMessage.getText().toString().trim().isEmpty()) return false;
+
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    startRecording();
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    stopRecording(event.getAction() == MotionEvent.ACTION_UP);
+                    return true;
+            }
+            return false;
+        });
+    }
+
+    // ── Voice Recording ──────────────────────────────────────────────────────
+
+    private void startRecording() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            micPermLauncher.launch(Manifest.permission.RECORD_AUDIO);
+            return;
+        }
+
+        try {
+            File cacheDir = getCacheDir();
+            voiceFile = new File(cacheDir, "voice_" + System.currentTimeMillis() + ".m4a");
+
+            mediaRecorder = new MediaRecorder();
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            mediaRecorder.setAudioSamplingRate(44100);
+            mediaRecorder.setAudioEncodingBitRate(128000);
+            mediaRecorder.setOutputFile(voiceFile.getAbsolutePath());
+            mediaRecorder.prepare();
+            mediaRecorder.start();
+
+            isRecording = true;
+            recordingStartTime = System.currentTimeMillis();
+
+            btnSend.setImageResource(android.R.drawable.ic_btn_speak_now);
+            Toast.makeText(this, "🎤 Recording...", Toast.LENGTH_SHORT).show();
+
+        } catch (Exception e) {
+            Log.e(TAG, "Recording start error", e);
+            Toast.makeText(this, "Cannot start recording", Toast.LENGTH_SHORT).show();
+            stopRecording(false);
+        }
+    }
+
+    private void stopRecording(boolean send) {
+        if (!isRecording) return;
+        isRecording = false;
+        recordingHandler.removeCallbacksAndMessages(null);
+
+        long duration = (System.currentTimeMillis() - recordingStartTime) / 1000;
+
+        try {
+            if (mediaRecorder != null) {
+                mediaRecorder.stop();
+                mediaRecorder.release();
+                mediaRecorder = null;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Recording stop error", e);
+            mediaRecorder = null;
+            return;
+        }
+
+        if (send && voiceFile != null && voiceFile.exists() && duration >= 1) {
+            // Минимум 1 секунда
+            uploadVoiceMessage(voiceFile, duration);
+        } else if (duration < 1) {
+            Toast.makeText(this, "Hold longer to record", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void uploadVoiceMessage(File file, long durationSeconds) {
+        Toast.makeText(this, "Sending voice...", Toast.LENGTH_SHORT).show();
+
+        new Thread(() -> {
+            try {
+                byte[] fileBytes = readFile(file);
+                String fileName  = file.getName();
+                String boundary  = "Boundary" + System.currentTimeMillis();
+
+                HttpURLConnection conn = (HttpURLConnection) new URL(UPLOAD_URL).openConnection();
+                conn.setDoOutput(true);
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+                conn.setConnectTimeout(30_000);
+                conn.setReadTimeout(60_000);
+
+                DataOutputStream dos = new DataOutputStream(conn.getOutputStream());
+                dos.writeBytes("--" + boundary + "\r\n");
+                dos.writeBytes("Content-Disposition: form-data; name=\"upload_preset\"\r\n\r\n");
+                dos.writeBytes(UPLOAD_PRESET + "\r\n");
+                dos.writeBytes("--" + boundary + "\r\n");
+                dos.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\""
+                        + fileName + "\"\r\n");
+                dos.writeBytes("Content-Type: audio/mp4\r\n\r\n");
+                dos.write(fileBytes);
+                dos.writeBytes("\r\n--" + boundary + "--\r\n");
+                dos.flush();
+                dos.close();
+
+                int code = conn.getResponseCode();
+                InputStream resp = (code == 200) ? conn.getInputStream() : conn.getErrorStream();
+                BufferedReader br = new BufferedReader(new InputStreamReader(resp));
+                StringBuilder sb = new StringBuilder();
+                String line;
+                while ((line = br.readLine()) != null) sb.append(line);
+                br.close();
+                conn.disconnect();
+
+                if (code == 200) {
+                    String fileUrl = new JSONObject(sb.toString()).getString("secure_url");
+                    runOnUiThread(() -> sendVoiceMessage(fileUrl, durationSeconds));
+                } else {
+                    runOnUiThread(() ->
+                            Toast.makeText(this, "Upload failed", Toast.LENGTH_SHORT).show());
+                }
+
+                // Удаляем временный файл
+                file.delete();
+
+            } catch (Exception e) {
+                Log.e(TAG, "Voice upload error", e);
+                runOnUiThread(() ->
+                        Toast.makeText(this, "Upload error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+            }
+        }).start();
+    }
+
+    private byte[] readFile(File file) throws IOException {
+        try (FileInputStream fis = new FileInputStream(file)) {
+            byte[] data = new byte[(int) file.length()];
+            fis.read(data);
+            return data;
+        }
+    }
+
+    private void sendVoiceMessage(String fileUrl, long durationSeconds) {
+        DocumentReference ref = db.collection("Chats").document(chatId)
+                .collection("Messages").document();
+        Message msg = new Message(ref.getId(), currentUserId, fileUrl,
+                System.currentTimeMillis(), 0, "voice", false);
+        msg.duration = durationSeconds;
+        if (replyMessage != null) msg.replyToText = replyMessage.text;
+
+        ref.set(msg).addOnSuccessListener(v -> {
+            cancelReply();
+            ref.update("status", 1);
+        }).addOnFailureListener(e ->
+                Toast.makeText(this, "Send failed", Toast.LENGTH_SHORT).show());
+    }
+
     // ── Video Call ──────────────────────────────────────────────────────────
 
     private void setupVideoCallButton() {
@@ -213,13 +404,13 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
     }
 
     private void checkCallPermissionsAndStart() {
-        boolean hasCam = ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-        boolean hasMic = ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-        if (hasCam && hasMic) {
-            startVideoCall();
-        } else {
-            callPermLauncher.launch(new String[]{android.Manifest.permission.CAMERA, android.Manifest.permission.RECORD_AUDIO});
-        }
+        boolean hasCam = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+        boolean hasMic = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED;
+        if (hasCam && hasMic) startVideoCall();
+        else callPermLauncher.launch(new String[]{
+                Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO});
     }
 
     private void startVideoCall() {
@@ -232,14 +423,12 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         TextView tvUserName = findViewById(R.id.tvUserName);
         String calleeName = tvUserName != null ? tvUserName.getText().toString() : "";
 
-        // Документ для получателя
         Map<String, Object> callDataReceiver = new HashMap<>();
         callDataReceiver.put("callId",     callId);
         callDataReceiver.put("callerId",   currentUserId);
         callDataReceiver.put("callerName", currentUserName);
         callDataReceiver.put("status",     "calling");
 
-        // Документ для себя — слушаем статус accepted/declined
         Map<String, Object> callDataSelf = new HashMap<>();
         callDataSelf.put("callId",      callId);
         callDataSelf.put("otherUserId", otherUserId);
@@ -274,20 +463,6 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         });
     }
 
-    // ── Send Button ─────────────────────────────────────────────────────────
-
-    private void setupSendButton() {
-        btnSend.setOnClickListener(v -> {
-            String txt = etMessage.getText().toString().trim();
-            if (txt.isEmpty()) {
-                Toast.makeText(this, "Hold for Voice", Toast.LENGTH_SHORT).show();
-            } else {
-                if (editingId != null) commitEdit(txt);
-                else sendTextMessage(txt);
-            }
-        });
-    }
-
     // ── Attachment Menu ─────────────────────────────────────────────────────
 
     private void showAttachmentMenu() {
@@ -296,16 +471,13 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         View view = getLayoutInflater().inflate(R.layout.layout_attachment_picker, null);
 
         view.findViewById(R.id.itemGallery).setOnClickListener(v -> {
-            dialog.dismiss();
-            checkStoragePermAndOpenGallery();
+            dialog.dismiss(); checkStoragePermAndOpenGallery();
         });
         view.findViewById(R.id.itemCamera).setOnClickListener(v -> {
-            dialog.dismiss();
-            checkCameraPermAndOpen();
+            dialog.dismiss(); checkCameraPermAndOpen();
         });
         view.findViewById(R.id.itemDocument).setOnClickListener(v -> {
-            dialog.dismiss();
-            openDocumentPicker();
+            dialog.dismiss(); openDocumentPicker();
         });
 
         dialog.setContentView(view);
@@ -335,11 +507,8 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
 
     private void checkCameraPermAndOpen() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED) {
-            openCamera();
-        } else {
-            cameraPermLauncher.launch(Manifest.permission.CAMERA);
-        }
+                == PackageManager.PERMISSION_GRANTED) openCamera();
+        else cameraPermLauncher.launch(Manifest.permission.CAMERA);
     }
 
     private void openCamera() {
@@ -355,14 +524,13 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
             intent.putExtra(MediaStore.EXTRA_OUTPUT, cameraImageUri);
             cameraLauncher.launch(intent);
         } catch (IOException e) {
-            Log.e(TAG, "Camera file error", e);
             Toast.makeText(this, "Could not open camera", Toast.LENGTH_SHORT).show();
         }
     }
 
     private File createImageFile() throws IOException {
-        String ts  = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
-        File dir   = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        String ts = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        File dir  = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         return File.createTempFile("IMG_" + ts + "_", ".jpg", dir);
     }
 
@@ -422,12 +590,10 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
                     String fileUrl = new JSONObject(sb.toString()).getString("secure_url");
                     runOnUiThread(() -> sendFileMessage(fileUrl, fileName, messageType));
                 } else {
-                    Log.e(TAG, "Cloudinary error " + code + ": " + sb);
                     runOnUiThread(() ->
                             Toast.makeText(this, "Upload failed (" + code + ")", Toast.LENGTH_LONG).show());
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Upload error", e);
                 runOnUiThread(() ->
                         Toast.makeText(this, "Upload error: " + e.getMessage(), Toast.LENGTH_LONG).show());
             }
@@ -533,9 +699,10 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
         replyMessage = m;
         layoutReply.setVisibility(View.VISIBLE);
         tvReplyPreview.setText(
-                ("image".equals(m.type) || "document".equals(m.type))
-                        ? "📎 " + (m.fileName != null ? m.fileName : "Attachment")
-                        : m.text);
+                "voice".equals(m.type) ? "🎤 Voice message" :
+                        ("image".equals(m.type) || "document".equals(m.type))
+                                ? "📎 " + (m.fileName != null ? m.fileName : "Attachment")
+                                : m.text);
     }
 
     public void cancelReply(View v) { cancelReply(); }
@@ -546,7 +713,7 @@ public class ChatActivity extends AppCompatActivity implements MessageAdapter.Me
 
     @Override public void onEdit(Message m) {
         if (!"text".equals(m.type)) {
-            Toast.makeText(this, "Cannot edit attachments", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Cannot edit this message", Toast.LENGTH_SHORT).show();
             return;
         }
         editingId = m.messageId;

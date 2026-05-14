@@ -8,17 +8,21 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
 import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.MimeTypeMap;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -44,6 +48,11 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     private final String currentUserId;
     private final MessageActionListener actionListener;
 
+    // Только один MediaPlayer активен одновременно
+    private MediaPlayer activePlayer = null;
+    private MessageViewHolder activeHolder = null;
+    private Handler progressHandler = new Handler();
+
     public interface MessageActionListener {
         void onDelete(Message message);
         void onEdit(Message message);
@@ -52,8 +61,8 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
 
     public MessageAdapter(List<Message> messageList, String currentUserId,
                           MessageActionListener actionListener) {
-        this.messageList    = messageList;
-        this.currentUserId  = currentUserId;
+        this.messageList   = messageList;
+        this.currentUserId = currentUserId;
         this.actionListener = actionListener;
     }
 
@@ -90,6 +99,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         // ── Сброс видимости ─────────────────────────────────────────────────
         holder.ivPhoto.setVisibility(View.GONE);
         holder.layoutDocument.setVisibility(View.GONE);
+        holder.layoutVoice.setVisibility(View.GONE);
         holder.tvMessage.setVisibility(View.GONE);
 
         // ── Удалённое сообщение ─────────────────────────────────────────────
@@ -108,10 +118,9 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         // ── Фото ────────────────────────────────────────────────────────────
         if ("image".equals(message.type)) {
             holder.ivPhoto.setVisibility(View.VISIBLE);
-
             Glide.with(context)
                     .asBitmap()
-                    .load(message.text) // text хранит URL
+                    .load(message.text)
                     .transform(new RoundedCorners(32))
                     .placeholder(android.R.drawable.ic_menu_gallery)
                     .into(new SimpleTarget<Bitmap>() {
@@ -119,15 +128,11 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
                         public void onResourceReady(@NonNull Bitmap bitmap,
                                                     Transition<? super Bitmap> transition) {
                             holder.ivPhoto.setImageBitmap(bitmap);
-
-                            // Автосохранение в галерею только для входящих сообщений
                             if (!message.senderId.equals(currentUserId)) {
                                 saveImageToGallery(context, bitmap, message.messageId);
                             }
                         }
                     });
-
-            // Клик — открыть полный экран
             holder.ivPhoto.setOnClickListener(v -> {
                 Intent intent = new Intent(Intent.ACTION_VIEW);
                 intent.setDataAndType(Uri.parse(message.text), "image/*");
@@ -144,8 +149,71 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
             String displayName = (message.fileName != null && !message.fileName.isEmpty())
                     ? message.fileName : "Document";
             holder.tvFileName.setText(displayName);
-
             holder.layoutDocument.setOnClickListener(v -> openDocument(context, message.text));
+
+            // ── Голосовое сообщение ─────────────────────────────────────────────
+        } else if ("voice".equals(message.type)) {
+            holder.layoutVoice.setVisibility(View.VISIBLE);
+
+            // Показываем длительность
+            String durationStr = formatDuration(message.duration);
+            holder.tvVoiceDuration.setText(durationStr);
+            holder.seekBarVoice.setProgress(0);
+            holder.btnPlayVoice.setImageResource(android.R.drawable.ic_media_play);
+
+            holder.btnPlayVoice.setOnClickListener(v -> {
+                if (activePlayer != null && activeHolder == holder && activePlayer.isPlaying()) {
+                    // Пауза
+                    activePlayer.pause();
+                    holder.btnPlayVoice.setImageResource(android.R.drawable.ic_media_play);
+                    progressHandler.removeCallbacksAndMessages(null);
+                } else {
+                    // Останавливаем предыдущий
+                    stopActivePlayer();
+
+                    try {
+                        MediaPlayer player = new MediaPlayer();
+                        player.setDataSource(message.text);
+                        player.prepareAsync();
+                        player.setOnPreparedListener(mp -> {
+                            mp.start();
+                            activePlayer = mp;
+                            activeHolder = holder;
+                            holder.btnPlayVoice.setImageResource(android.R.drawable.ic_media_pause);
+                            startProgressUpdate(holder, mp);
+                        });
+                        player.setOnCompletionListener(mp -> {
+                            holder.btnPlayVoice.setImageResource(android.R.drawable.ic_media_play);
+                            holder.seekBarVoice.setProgress(0);
+                            holder.tvVoiceDuration.setText(durationStr);
+                            progressHandler.removeCallbacksAndMessages(null);
+                            activePlayer = null;
+                            activeHolder = null;
+                            mp.release();
+                        });
+                        player.setOnErrorListener((mp, what, extra) -> {
+                            Toast.makeText(context, "Playback error", Toast.LENGTH_SHORT).show();
+                            stopActivePlayer();
+                            return true;
+                        });
+                    } catch (Exception e) {
+                        Toast.makeText(context, "Cannot play voice", Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+
+            // SeekBar — перемотка
+            holder.seekBarVoice.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    if (fromUser && activePlayer != null && activeHolder == holder) {
+                        int pos = (int) (activePlayer.getDuration() * (progress / 100f));
+                        activePlayer.seekTo(pos);
+                    }
+                }
+                @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+                @Override public void onStopTrackingTouch(SeekBar seekBar) {}
+            });
 
             // ── Текст ────────────────────────────────────────────────────────────
         } else {
@@ -181,18 +249,23 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
                     message.status == 2 ? Color.parseColor("#03A9F4") : Color.GRAY);
         }
 
-        // ── Long click (popup menu) ─────────────────────────────────────────
+        // ── Long click ─────────────────────────────────────────────────────
         holder.itemView.setOnLongClickListener(v -> {
             PopupMenu popup = new PopupMenu(context, holder.itemView);
             popup.getMenu().add("Reply");
+
+            // Copy только для текста
             if ("text".equals(message.type)) popup.getMenu().add("Copy");
+
             if (message.senderId.equals(currentUserId)) {
+                // Edit только для текста
                 if ("text".equals(message.type)) popup.getMenu().add("Edit");
                 popup.getMenu().add("Delete");
             }
+
             popup.setOnMenuItemClickListener(item -> {
                 switch (item.getTitle().toString()) {
-                    case "Reply": actionListener.onReply(message); break;
+                    case "Reply":  actionListener.onReply(message);  break;
                     case "Copy":
                         ClipboardManager cb = (ClipboardManager)
                                 context.getSystemService(Context.CLIPBOARD_SERVICE);
@@ -209,25 +282,71 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         });
     }
 
-    // ── Сохранение фото в галерею ───────────────────────────────────────────
+    // ── Voice helpers ───────────────────────────────────────────────────────
+
+    private void startProgressUpdate(MessageViewHolder holder, MediaPlayer player) {
+        progressHandler.removeCallbacksAndMessages(null);
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                if (player != null && player.isPlaying()) {
+                    int duration = player.getDuration();
+                    int current  = player.getCurrentPosition();
+                    if (duration > 0) {
+                        holder.seekBarVoice.setProgress((int) (100f * current / duration));
+                        // Показываем оставшееся время
+                        int remaining = (duration - current) / 1000;
+                        holder.tvVoiceDuration.setText(formatDuration(remaining));
+                    }
+                    progressHandler.postDelayed(this, 200);
+                }
+            }
+        };
+        progressHandler.post(runnable);
+    }
+
+    private void stopActivePlayer() {
+        progressHandler.removeCallbacksAndMessages(null);
+        if (activePlayer != null) {
+            try {
+                if (activePlayer.isPlaying()) activePlayer.stop();
+                activePlayer.release();
+            } catch (Exception ignored) {}
+            activePlayer = null;
+        }
+        if (activeHolder != null) {
+            activeHolder.btnPlayVoice.setImageResource(android.R.drawable.ic_media_play);
+            activeHolder.seekBarVoice.setProgress(0);
+            activeHolder = null;
+        }
+    }
+
+    /** Останавливает воспроизведение — вызывай из Activity.onDestroy() */
+    public void releasePlayer() {
+        stopActivePlayer();
+    }
+
+    private String formatDuration(long seconds) {
+        if (seconds <= 0) return "0:00";
+        long m = seconds / 60;
+        long s = seconds % 60;
+        return m + ":" + String.format(Locale.US, "%02d", s);
+    }
+
+    // ── Image save ──────────────────────────────────────────────────────────
 
     private void saveImageToGallery(Context context, Bitmap bitmap, String messageId) {
-        // Проверяем не сохраняли ли уже (по тегу в SharedPreferences)
         android.content.SharedPreferences prefs =
                 context.getSharedPreferences("saved_images", Context.MODE_PRIVATE);
-        if (prefs.getBoolean(messageId, false)) return; // уже сохранено
-
+        if (prefs.getBoolean(messageId, false)) return;
         try {
             String fileName = "SkillSwap_" + System.currentTimeMillis() + ".jpg";
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Android 10+
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
                 values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
                 values.put(MediaStore.Images.Media.RELATIVE_PATH,
                         Environment.DIRECTORY_PICTURES + "/SkillSwap");
-
                 Uri uri = context.getContentResolver()
                         .insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
                 if (uri != null) {
@@ -236,7 +355,6 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
                     }
                 }
             } else {
-                // Android 9 и ниже
                 File dir = new File(Environment.getExternalStoragePublicDirectory(
                         Environment.DIRECTORY_PICTURES), "SkillSwap");
                 if (!dir.exists()) dir.mkdirs();
@@ -244,35 +362,26 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
                 try (FileOutputStream out = new FileOutputStream(file)) {
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
                 }
-                // Обновить MediaStore чтобы фото появилось в галерее
                 context.sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE,
                         Uri.fromFile(file)));
             }
-
-            // Запоминаем что сохранили
             prefs.edit().putBoolean(messageId, true).apply();
-
-        } catch (Exception e) {
-            // Тихо — не беспокоим пользователя если не удалось
-        }
+        } catch (Exception ignored) {}
     }
 
-    // ── Открыть документ ───────────────────────────────────────────────────
+    // ── Document open ───────────────────────────────────────────────────────
 
     private void openDocument(Context context, String fileUrl) {
         if (fileUrl == null || fileUrl.isEmpty()) return;
-        String ext = MimeTypeMap.getFileExtensionFromUrl(fileUrl);
+        String ext  = MimeTypeMap.getFileExtensionFromUrl(fileUrl);
         String mime = (ext != null)
-                ? MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.toLowerCase())
-                : "*/*";
+                ? MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.toLowerCase()) : "*/*";
         if (mime == null) mime = "*/*";
-
         Intent intent = new Intent(Intent.ACTION_VIEW);
         intent.setDataAndType(Uri.parse(fileUrl), mime);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        try {
-            context.startActivity(Intent.createChooser(intent, "Open with"));
-        } catch (Exception e) {
+        try { context.startActivity(Intent.createChooser(intent, "Open with")); }
+        catch (Exception e) {
             Toast.makeText(context, "No app to open this file", Toast.LENGTH_SHORT).show();
         }
     }
@@ -304,9 +413,12 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     // ── ViewHolder ──────────────────────────────────────────────────────────
 
     static class MessageViewHolder extends RecyclerView.ViewHolder {
-        TextView    tvDateHeader, tvMessage, tvTime, tvStatus, tvEdited, tvReplyText, tvFileName;
-        ImageView   ivPhoto;
-        LinearLayout layoutDocument;
+        TextView     tvDateHeader, tvMessage, tvTime, tvStatus, tvEdited, tvReplyText,
+                tvFileName, tvVoiceDuration;
+        ImageView    ivPhoto;
+        ImageButton  btnPlayVoice;
+        SeekBar      seekBarVoice;
+        LinearLayout layoutDocument, layoutVoice;
 
         public MessageViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -319,6 +431,10 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
             ivPhoto        = itemView.findViewById(R.id.ivPhoto);
             layoutDocument = itemView.findViewById(R.id.layoutDocument);
             tvFileName     = itemView.findViewById(R.id.tvFileName);
+            layoutVoice    = itemView.findViewById(R.id.layoutVoice);
+            btnPlayVoice   = itemView.findViewById(R.id.btnPlayVoice);
+            seekBarVoice   = itemView.findViewById(R.id.seekBarVoice);
+            tvVoiceDuration = itemView.findViewById(R.id.tvVoiceDuration);
         }
     }
 }

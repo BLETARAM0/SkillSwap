@@ -73,6 +73,50 @@
                         android:ellipsize="middle" />
                 </LinearLayout>
 
+                <!-- Голосовое сообщение -->
+                <LinearLayout
+                    android:id="@+id/layoutVoice"
+                    android:layout_width="220dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="10dp"
+                    android:gravity="center_vertical"
+                    android:visibility="gone">
+
+                    <ImageButton
+                        android:id="@+id/btnPlayVoice"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="#E0E0E0"
+                        android:src="@android:drawable/ic_media_play"
+                        android:padding="8dp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:orientation="vertical">
+
+                        <SeekBar
+                            android:id="@+id/seekBarVoice"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="100"
+                            android:progress="0"
+                            android:progressTint="#0088CC"
+                            android:thumbTint="#0088CC" />
+
+                        <TextView
+                            android:id="@+id/tvVoiceDuration"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="11sp"
+                            android:textColor="#888888"
+                            android:text="0:00" />
+                    </LinearLayout>
+                </LinearLayout>
+
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
