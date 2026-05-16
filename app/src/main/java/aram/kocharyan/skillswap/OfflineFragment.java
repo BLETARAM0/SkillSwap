@@ -19,7 +19,9 @@ import org.json.JSONObject;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
 public class OfflineFragment extends Fragment {
 
@@ -33,7 +35,7 @@ public class OfflineFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_offline, container, false);
 
         spinnerCountry = view.findViewById(R.id.spinnerCountry);
-        spinnerCity = view.findViewById(R.id.spinnerCity);
+        spinnerCity    = view.findViewById(R.id.spinnerCity);
         Button btnNext = view.findViewById(R.id.btnNext);
 
         loadCountries();
@@ -43,16 +45,14 @@ public class OfflineFragment extends Fragment {
             public void onItemSelected(android.widget.AdapterView<?> parent, View view1, int position, long id) {
                 loadCities(parent.getItemAtPosition(position).toString());
             }
-
-            @Override
-            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
         btnNext.setOnClickListener(v -> {
-            String selectedCountry = spinnerCountry.getSelectedItem() != null ?
-                    spinnerCountry.getSelectedItem().toString() : "";
-            String selectedCity = spinnerCity.getSelectedItem() != null ?
-                    spinnerCity.getSelectedItem().toString() : "";
+            String selectedCountry = spinnerCountry.getSelectedItem() != null
+                    ? spinnerCountry.getSelectedItem().toString() : "";
+            String selectedCity    = spinnerCity.getSelectedItem() != null
+                    ? spinnerCity.getSelectedItem().toString() : "";
 
             if (selectedCountry.isEmpty() || selectedCity.isEmpty()) {
                 Toast.makeText(requireContext(), "Please select country and city", Toast.LENGTH_SHORT).show();
@@ -62,8 +62,14 @@ public class OfflineFragment extends Fragment {
             String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
             FirebaseFirestore db = FirebaseFirestore.getInstance();
 
+            // ── Сохраняем mode=offline + country + city ──────────────────────
+            Map<String, Object> data = new HashMap<>();
+            data.put("mode",    "offline");
+            data.put("country", selectedCountry);
+            data.put("city",    selectedCity);
+
             db.collection("Users").document(userId)
-                    .update("country", selectedCountry, "city", selectedCity)
+                    .update(data)
                     .addOnSuccessListener(aVoid -> {
                         Toast.makeText(requireContext(), "Location saved ✅", Toast.LENGTH_SHORT).show();
                         requireActivity().getSupportFragmentManager()
@@ -80,24 +86,19 @@ public class OfflineFragment extends Fragment {
 
     private void loadCountries() {
         try {
-            String jsonString = loadJSONFromAsset();
-            countriesObject = new JSONObject(jsonString);
+            InputStream is = requireContext().getAssets().open("countries.json");
+            int size = is.available();
+            byte[] buffer = new byte[size];
+            is.read(buffer);
+            is.close();
 
+            countriesObject = new JSONObject(new String(buffer, "UTF-8"));
             Iterator<String> keys = countriesObject.keys();
             ArrayList<String> countryList = new ArrayList<>();
+            while (keys.hasNext()) countryList.add(keys.next());
 
-            while (keys.hasNext()) {
-                countryList.add(keys.next());
-            }
-
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                    requireContext(),
-                    android.R.layout.simple_spinner_dropdown_item,
-                    countryList
-            );
-
-            spinnerCountry.setAdapter(adapter);
-
+            spinnerCountry.setAdapter(new ArrayAdapter<>(requireContext(),
+                    android.R.layout.simple_spinner_dropdown_item, countryList));
         } catch (Exception e) {
             e.printStackTrace();
             Toast.makeText(requireContext(), "Error loading countries", Toast.LENGTH_LONG).show();
@@ -108,36 +109,13 @@ public class OfflineFragment extends Fragment {
         try {
             JSONArray citiesArray = countriesObject.getJSONArray(country);
             ArrayList<String> cityList = new ArrayList<>();
-
-            for (int i = 0; i < citiesArray.length(); i++) {
+            for (int i = 0; i < citiesArray.length(); i++)
                 cityList.add(citiesArray.getString(i));
-            }
 
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                    requireContext(),
-                    android.R.layout.simple_spinner_dropdown_item,
-                    cityList
-            );
-
-            spinnerCity.setAdapter(adapter);
-
+            spinnerCity.setAdapter(new ArrayAdapter<>(requireContext(),
+                    android.R.layout.simple_spinner_dropdown_item, cityList));
         } catch (Exception e) {
             e.printStackTrace();
-            Toast.makeText(requireContext(), "Error loading cities", Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private String loadJSONFromAsset() {
-        try {
-            InputStream is = requireContext().getAssets().open("countries.json");
-            int size = is.available();
-            byte[] buffer = new byte[size];
-            is.read(buffer);
-            is.close();
-            return new String(buffer, "UTF-8");
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return null;
         }
     }
 }

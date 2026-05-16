@@ -50,8 +50,6 @@ public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchCl
         return view;
     }
 
-    // ── Загрузка матчей ─────────────────────────────────────────────────────
-
     private void loadMatches() {
         db.collection("Users").document(currentUserId).get()
                 .addOnSuccessListener(currentDoc -> {
@@ -64,11 +62,16 @@ public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchCl
                     if (currentUser == null) return;
                     currentUser.userId = currentDoc.getId();
 
-                    Log.d(TAG, "Current: " + currentUser.name
+                    // Если mode не установлен — считаем online
+                    if (currentUser.mode == null) currentUser.mode = "online";
+
+                    Log.d(TAG, "Me: " + currentUser.name
                             + " teach=" + currentUser.skillTeach
                             + " study=" + currentUser.skillStudy
                             + " lang=" + currentUser.language
-                            + " mode=" + currentUser.mode);
+                            + " mode=" + currentUser.mode
+                            + " country=" + currentUser.country
+                            + " city=" + currentUser.city);
 
                     db.collection("Users").get()
                             .addOnSuccessListener(snapshot -> {
@@ -79,12 +82,17 @@ public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchCl
                                     if (other == null) continue;
                                     other.userId = doc.getId();
 
+                                    // Если mode не установлен — считаем online
+                                    if (other.mode == null) other.mode = "online";
+
                                     boolean match = isMatch(currentUser, other);
                                     Log.d(TAG, "vs " + other.name
                                             + " teach=" + other.skillTeach
                                             + " study=" + other.skillStudy
                                             + " lang=" + other.language
                                             + " mode=" + other.mode
+                                            + " country=" + other.country
+                                            + " city=" + other.city
                                             + " → " + match);
 
                                     if (match) matchList.add(other);
@@ -102,16 +110,12 @@ public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchCl
                 .addOnFailureListener(e -> Log.e(TAG, "Error loading current user", e));
     }
 
-    // ── Логика матчинга ─────────────────────────────────────────────────────
-    // Оригинальная логика + проверка языка
-
     private boolean isMatch(AppUser current, AppUser other) {
-        // Обязательные поля
-        if (current.mode == null || other.mode == null) return false;
+        // Скиллы обязательны
         if (current.skillTeach == null || current.skillStudy == null) return false;
         if (other.skillTeach   == null || other.skillStudy   == null) return false;
 
-        // Скиллы: строгое взаимное совпадение (как в оригинале)
+        // Взаимное совпадение скиллов
         boolean skillsMatch = current.skillTeach.equals(other.skillStudy)
                 && current.skillStudy.equals(other.skillTeach);
         if (!skillsMatch) return false;
@@ -122,24 +126,24 @@ public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchCl
             if (!current.language.equals(other.language)) return false;
         }
 
-        // Режим: online-online
-        if ("online".equals(current.mode) && "online".equals(other.mode)) return true;
-
-        // Режим: offline-offline + страна + город
-        if ("offline".equals(current.mode) && "offline".equals(other.mode)) {
-            return current.country != null && current.country.equals(other.country)
-                    && current.city != null && current.city.equals(other.city);
+        // Режим online-online
+        if ("online".equals(current.mode) && "online".equals(other.mode)) {
+            return true;
         }
 
+        // Режим offline-offline + страна + город
+        if ("offline".equals(current.mode) && "offline".equals(other.mode)) {
+            if (current.country == null || current.city == null) return false;
+            return current.country.equals(other.country)
+                    && current.city.equals(other.city);
+        }
+
+        // online + offline не матчатся
         return false;
     }
 
-    // ── Клик — отправить запрос ─────────────────────────────────────────────
-
     @Override
     public void onMatchClick(AppUser targetUser) {
-        Log.d(TAG, "Click: " + targetUser.name + " id=" + targetUser.userId);
-
         if (targetUser.userId == null) {
             Toast.makeText(requireContext(), "Error: User ID is null", Toast.LENGTH_SHORT).show();
             return;
@@ -151,8 +155,6 @@ public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchCl
         String requestId = currentUserId.compareTo(targetUser.userId) < 0
                 ? currentUserId + "_" + targetUser.userId
                 : targetUser.userId + "_" + currentUserId;
-
-        Log.d(TAG, "requestId: " + requestId);
 
         Map<String, Object> requestData = new HashMap<>();
         requestData.put("requestId",  requestId);
@@ -166,13 +168,11 @@ public class HomeFragment extends Fragment implements HomeMatchAdapter.OnMatchCl
         db.collection("ChatRequests").document(requestId)
                 .set(requestData)
                 .addOnSuccessListener(v -> {
-                    Log.d(TAG, "Request saved!");
                     if (!isAdded()) return;
                     Toast.makeText(requireContext(),
                             "Request sent to " + targetUser.name, Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Firestore error: " + e.getMessage());
                     if (!isAdded()) return;
                     Toast.makeText(requireContext(), "Failed to send request", Toast.LENGTH_SHORT).show();
                 });
