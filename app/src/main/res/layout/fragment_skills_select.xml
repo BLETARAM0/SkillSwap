@@ -1,53 +1,199 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
-    android:padding="24dp">
+    android:background="#F5F5F5">
 
-    <!-- Question: What you can teach? -->
-    <TextView
-        android:id="@+id/tvTeachQuestion"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="What can you teach?"
-        android:textSize="18sp"
-        android:textStyle="bold"/>
+        android:orientation="vertical"
+        android:padding="24dp"
+        android:gravity="center_horizontal">
 
-    <!-- Teach Spinner -->
-    <Spinner
-        android:id="@+id/spTeach"
-        android:layout_width="200dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Set Up Your Skills"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="#111111"
+            android:layout_marginBottom="6dp" />
 
-    <!-- Question: What you want to study? -->
-    <TextView
-        android:id="@+id/tvLearnQuestion"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="What do you want to study?"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:layout_marginTop="24dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tell us what you can teach and want to learn"
+            android:textSize="14sp"
+            android:textColor="#555555"
+            android:layout_marginBottom="28dp" />
 
-    <!-- Learn Spinner -->
-    <Spinner
-        android:id="@+id/spStudy"
-        android:layout_width="200dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"/>
+        <!-- Карточка 1: Teach -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="3dp"
+            app:cardBackgroundColor="#FFFFFF">
 
-    <!-- Next Button -->
-    <Button
-        android:id="@+id/btnNext"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Next"
-        android:layout_gravity="end"
-        android:layout_marginTop="40dp"
-        android:layout_marginEnd="24dp"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
 
-</LinearLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📚  What can you teach?"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#111111"
+                    android:layout_marginBottom="10dp" />
+
+                <TextView
+                    android:id="@+id/tvTeachSelected"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:gravity="center_vertical"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:text="Tap to select..."
+                    android:textColor="#444444"
+                    android:textSize="15sp"
+                    android:background="@drawable/spinner_field_bg" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Карточка 2: Study -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="3dp"
+            app:cardBackgroundColor="#FFFFFF">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🎓  What do you want to study?"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#111111"
+                    android:layout_marginBottom="10dp" />
+
+                <TextView
+                    android:id="@+id/tvStudySelected"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:gravity="center_vertical"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:text="Tap to select..."
+                    android:textColor="#444444"
+                    android:textSize="15sp"
+                    android:background="@drawable/spinner_field_bg" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Карточка 3: Language -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="3dp"
+            app:cardBackgroundColor="#FFFFFF">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🌐  Language of instruction"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#111111"
+                    android:layout_marginBottom="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="The language you and your partner will use"
+                    android:textSize="12sp"
+                    android:textColor="#888888"
+                    android:layout_marginBottom="10dp" />
+
+                <!-- 3 кнопки языка -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnLangRu"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="🇷🇺 Russian"
+                        android:textAllCaps="false"
+                        android:textSize="13sp"
+                        android:textColor="#555555"
+                        android:backgroundTint="#F0F0F0" />
+
+                    <Button
+                        android:id="@+id/btnLangEn"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="🇬🇧 English"
+                        android:textAllCaps="false"
+                        android:textSize="13sp"
+                        android:textColor="#555555"
+                        android:backgroundTint="#F0F0F0" />
+
+                    <Button
+                        android:id="@+id/btnLangHy"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="🇦🇲 Armenian"
+                        android:textAllCaps="false"
+                        android:textSize="13sp"
+                        android:textColor="#555555"
+                        android:backgroundTint="#F0F0F0" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <Button
+            android:id="@+id/btnNext"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Get Started →"
+            android:textAllCaps="false"
+            android:textSize="17sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#2196F3" />
+
+    </LinearLayout>
+</ScrollView>

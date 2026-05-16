@@ -1,105 +1,234 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#F5F5F5">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:orientation="vertical">
 
-        <!-- PROFILE INFO -->
-
-        <TextView
-            android:id="@+id/tvName"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
-
-        <TextView
-            android:id="@+id/tvEmail"
-            android:layout_marginTop="8dp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
-
-        <!-- SETTINGS SECTION -->
-
-        <TextView
-            android:text="Mode"
-            android:textStyle="bold"
-            android:textSize="18sp"
-            android:layout_marginTop="24dp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
-
-        <RadioGroup
-            android:id="@+id/radioGroupMode"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <RadioButton
-                android:id="@+id/radioOnline"
-                android:text="Online"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
-
-            <RadioButton
-                android:id="@+id/radioOffline"
-                android:text="Offline"
-                android:layout_marginStart="16dp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"/>
-        </RadioGroup>
-
+        <!-- ── Шапка с аватаркой ── -->
         <LinearLayout
-            android:id="@+id/layoutLocation"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone"
-            android:layout_marginTop="16dp">
+            android:gravity="center"
+            android:paddingTop="32dp"
+            android:paddingBottom="24dp"
+            android:background="#FFFFFF"
+            android:elevation="2dp">
 
-            <Spinner
-                android:id="@+id/spinnerCountry"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"/>
+            <FrameLayout
+                android:id="@+id/avatarContainer"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_marginBottom="8dp">
 
-            <Spinner
-                android:id="@+id/spinnerCity"
-                android:layout_width="match_parent"
+                <ImageView
+                    android:id="@+id/ivAvatar"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:scaleType="centerCrop"
+                    android:background="@drawable/avatar_placeholder_bg"
+                    android:src="@android:drawable/ic_menu_camera"
+                    android:padding="24dp" />
+
+                <ImageView
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="bottom|end"
+                    android:background="#2196F3"
+                    android:src="@android:drawable/ic_menu_edit"
+                    android:padding="4dp" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvName"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"/>
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="#111111" />
+
+            <TextView
+                android:id="@+id/tvEmail"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="14sp"
+                android:textColor="#888888" />
         </LinearLayout>
 
-        <TextView
-            android:text="Skills"
-            android:textStyle="bold"
-            android:textSize="18sp"
-            android:layout_marginTop="24dp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"/>
-
-        <Spinner
-            android:id="@+id/spTeach"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
-
-        <Spinner
-            android:id="@+id/spStudy"
+        <!-- ── Карточка режима ── -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"/>
+            android:layout_margin="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:text="Mode"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="#333333"
+                    android:layout_marginBottom="8dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <RadioGroup
+                    android:id="@+id/radioGroupMode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/radioOnline"
+                        android:text="Online"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+
+                    <RadioButton
+                        android:id="@+id/radioOffline"
+                        android:text="Offline"
+                        android:layout_marginStart="24dp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+                </RadioGroup>
+
+                <LinearLayout
+                    android:id="@+id/layoutLocation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone"
+                    android:layout_marginTop="12dp">
+
+                    <Spinner
+                        android:id="@+id/spinnerCountry"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content" />
+
+                    <Spinner
+                        android:id="@+id/spinnerCity"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp" />
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- ── Карточка скиллов ── -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:text="I can teach"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="#333333"
+                    android:layout_marginBottom="8dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <Spinner
+                    android:id="@+id/spTeach"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+
+                <TextView
+                    android:text="I want to learn"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="#333333"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <Spinner
+                    android:id="@+id/spStudy"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- ── Карточка языка ── -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:text="🌐  Language of instruction"
+                    android:textStyle="bold"
+                    android:textSize="16sp"
+                    android:textColor="#333333"
+                    android:layout_marginBottom="8dp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <!-- Кликабельное поле вместо spinner -->
+                <TextView
+                    android:id="@+id/tvLanguageSelected"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:gravity="center_vertical"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:text="Select language..."
+                    android:textColor="#111111"
+                    android:textSize="15sp"
+                    android:background="@drawable/spinner_field_bg" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
         <Button
             android:id="@+id/btnSave"
-            android:text="Save"
-            android:layout_marginTop="24dp"
+            android:text="Save Profile"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="32dp"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
+            android:layout_height="52dp"
+            android:backgroundTint="#2196F3"
+            android:textColor="#FFFFFF" />
 
     </LinearLayout>
 </ScrollView>
