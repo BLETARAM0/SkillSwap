@@ -27,17 +27,18 @@ public class ProfileFragment extends Fragment {
     private RadioGroup radioGroupMode;
     private RadioButton radioOnline, radioOffline;
     private LinearLayout layoutLocation;
-    private Button btnSave;
+    private Button btnSave, btnLangRu, btnLangEn, btnLangHy;
     private JSONObject countriesObject;
 
-    // Флаг — не триггерить loadCities во время программной установки страны
     private boolean countryLoadedFromFirestore = false;
     private String savedCountry = null;
     private String savedCity    = null;
+    private String selectedLanguage = null;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+
         View view = inflater.inflate(R.layout.fragment_profile, container, false);
 
         tvName         = view.findViewById(R.id.tvName);
@@ -51,11 +52,14 @@ public class ProfileFragment extends Fragment {
         radioOffline   = view.findViewById(R.id.radioOffline);
         layoutLocation = view.findViewById(R.id.layoutLocation);
         btnSave        = view.findViewById(R.id.btnSave);
+        btnLangRu      = view.findViewById(R.id.btnLangRu);
+        btnLangEn      = view.findViewById(R.id.btnLangEn);
+        btnLangHy      = view.findViewById(R.id.btnLangHy);
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
 
-        // Skills
+        // ── Skills ──────────────────────────────────────────────────────────
         String[] skills = {
                 "Mathematics Grade 1", "Mathematics Grade 2", "Mathematics Grade 3",
                 "Mathematics Grade 4", "Mathematics Grade 5", "Mathematics Grade 6",
@@ -89,26 +93,28 @@ public class ProfileFragment extends Fragment {
         spTeach.setAdapter(adapter);
         spStudy.setAdapter(adapter);
 
-        // ── Загружаем страны ────────────────────────────────────────────────
+        // ── Language buttons ────────────────────────────────────────────────
+        btnLangRu.setOnClickListener(v -> selectLanguage("Russian"));
+        btnLangEn.setOnClickListener(v -> selectLanguage("English"));
+        btnLangHy.setOnClickListener(v -> selectLanguage("Armenian"));
+
+        // ── Countries ────────────────────────────────────────────────────────
         loadCountries();
 
-        // Listener на страну — загружает города, но восстанавливает сохранённый город
         spinnerCountry.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View v, int pos, long id) {
                 String country = parent.getItemAtPosition(pos).toString();
                 loadCities(country);
 
-                // После загрузки городов — восстанавливаем сохранённый город
                 if (countryLoadedFromFirestore && savedCity != null) {
-                    // Небольшая задержка чтобы адаптер успел заполниться
                     spinnerCity.post(() -> {
                         ArrayAdapter cityAdapter = (ArrayAdapter) spinnerCity.getAdapter();
                         if (cityAdapter != null) {
                             int cityPos = cityAdapter.getPosition(savedCity);
                             if (cityPos >= 0) spinnerCity.setSelection(cityPos);
                         }
-                        countryLoadedFromFirestore = false; // больше не восстанавливаем
+                        countryLoadedFromFirestore = false;
                     });
                 }
             }
@@ -118,19 +124,20 @@ public class ProfileFragment extends Fragment {
         radioGroupMode.setOnCheckedChangeListener((group, checkedId) ->
                 layoutLocation.setVisibility(checkedId == R.id.radioOffline ? View.VISIBLE : View.GONE));
 
-        // ── Загружаем данные пользователя ───────────────────────────────────
+        // ── Загрузка данных из Firebase ──────────────────────────────────────
         db.collection("Users").document(userId).get()
                 .addOnSuccessListener(document -> {
                     if (!document.exists()) return;
 
-                    String name    = document.getString("name");
-                    String surname = document.getString("surname");
-                    String email   = document.getString("email");
-                    String teach   = document.getString("skillTeach");
-                    String study   = document.getString("skillStudy");
-                    String mode    = document.getString("mode");
-                    savedCountry   = document.getString("country");
-                    savedCity      = document.getString("city");
+                    String name     = document.getString("name");
+                    String surname  = document.getString("surname");
+                    String email    = document.getString("email");
+                    String teach    = document.getString("skillTeach");
+                    String study    = document.getString("skillStudy");
+                    String mode     = document.getString("mode");
+                    String language = document.getString("language");
+                    savedCountry    = document.getString("country");
+                    savedCity       = document.getString("city");
 
                     tvName.setText(name + " " + surname);
                     tvEmail.setText(email);
@@ -138,26 +145,29 @@ public class ProfileFragment extends Fragment {
                     if (teach != null) spTeach.setSelection(adapter.getPosition(teach));
                     if (study != null) spStudy.setSelection(adapter.getPosition(study));
 
+                    // Восстанавливаем режим
                     if ("offline".equals(mode)) {
                         radioOffline.setChecked(true);
                         layoutLocation.setVisibility(View.VISIBLE);
-
-                        // Восстанавливаем страну — флаг укажет listener'у восстановить город
                         if (savedCountry != null && !savedCountry.isEmpty()) {
                             countryLoadedFromFirestore = true;
                             ArrayAdapter countryAdapter = (ArrayAdapter) spinnerCountry.getAdapter();
                             if (countryAdapter != null) {
-                                int countryPos = countryAdapter.getPosition(savedCountry);
-                                if (countryPos >= 0) spinnerCountry.setSelection(countryPos);
+                                int pos = countryAdapter.getPosition(savedCountry);
+                                if (pos >= 0) spinnerCountry.setSelection(pos);
                             }
                         }
                     } else {
                         radioOnline.setChecked(true);
-                        layoutLocation.setVisibility(View.GONE);
+                    }
+
+                    // Восстанавливаем язык — подсвечиваем нужную кнопку
+                    if (language != null && !language.isEmpty()) {
+                        selectLanguage(language);
                     }
                 });
 
-        // ── Сохранение ──────────────────────────────────────────────────────
+        // ── Сохранение ───────────────────────────────────────────────────────
         btnSave.setOnClickListener(v -> {
             String teach = spTeach.getSelectedItem().toString();
             String study = spStudy.getSelectedItem().toString();
@@ -172,9 +182,9 @@ public class ProfileFragment extends Fragment {
             updates.put("skillTeach", teach);
             updates.put("skillStudy", study);
             updates.put("mode",       mode);
+            if (selectedLanguage != null) updates.put("language", selectedLanguage);
 
-            // ── Ключевое исправление: при онлайн НЕ затираем country/city ──
-            // Сохраняем country/city только если offline
+            // Offline — сохраняем страну/город, online — не трогаем
             if ("offline".equals(mode)) {
                 String country = spinnerCountry.getSelectedItem() != null
                         ? spinnerCountry.getSelectedItem().toString() : "";
@@ -183,7 +193,6 @@ public class ProfileFragment extends Fragment {
                 updates.put("country", country);
                 updates.put("city",    city);
             }
-            // Если online — country/city в Firestore не трогаем (они там останутся)
 
             db.collection("Users").document(userId)
                     .update(updates)
@@ -195,6 +204,41 @@ public class ProfileFragment extends Fragment {
 
         return view;
     }
+
+    // ── Выбор языка — подсвечивает кнопку ────────────────────────────────────
+
+    private void selectLanguage(String language) {
+        selectedLanguage = language;
+
+        // Сброс всех
+        resetLangBtn(btnLangRu);
+        resetLangBtn(btnLangEn);
+        resetLangBtn(btnLangHy);
+
+        // Подсветка выбранной
+        Button selected = null;
+        switch (language) {
+            case "Russian":  selected = btnLangRu; break;
+            case "English":  selected = btnLangEn; break;
+            case "Armenian": selected = btnLangHy; break;
+        }
+        if (selected != null) {
+            selected.setBackgroundTintList(
+                    android.content.res.ColorStateList.valueOf(
+                            android.graphics.Color.parseColor("#2563EB")));
+            selected.setTextColor(android.graphics.Color.WHITE);
+        }
+    }
+
+    private void resetLangBtn(Button btn) {
+        if (btn == null) return;
+        btn.setBackgroundTintList(
+                android.content.res.ColorStateList.valueOf(
+                        android.graphics.Color.parseColor("#F3F4F6")));
+        btn.setTextColor(android.graphics.Color.parseColor("#374151"));
+    }
+
+    // ── Countries / Cities ────────────────────────────────────────────────────
 
     private void loadCountries() {
         try {
