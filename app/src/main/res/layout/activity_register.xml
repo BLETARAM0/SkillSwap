@@ -1,46 +1,210 @@
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:background="#F0F4F8"
+    android:fillViewport="true">
 
-    <EditText
-        android:id="@+id/etName"
-        android:hint="Name"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:padding="24dp">
 
-    <EditText
-        android:id="@+id/etSurname"
-        android:hint="Surname"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        <!-- Title area -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingTop="36dp"
+            android:paddingBottom="32dp">
 
-    <EditText
-        android:id="@+id/etEmail"
-        android:hint="Email"
-        android:inputType="textEmailAddress"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+            <TextView
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:text="✨"
+                android:textSize="40sp"
+                android:gravity="center"
+                android:background="@drawable/chip_teach_bg"
+                android:layout_marginBottom="16dp" />
 
-    <EditText
-        android:id="@+id/etPassword"
-        android:hint="Password"
-        android:inputType="textPassword"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Create Account"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:textColor="#111827" />
 
-    <Button
-        android:id="@+id/btnRegister"
-        android:text="Register"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Join the SkillSwap community"
+                android:textSize="14sp"
+                android:textColor="#6B7280"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
 
-    <Button
-        android:id="@+id/btnGoLogin"
-        android:text="Already have account? Login"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        <!-- Card -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="4dp"
+            app:cardBackgroundColor="#FFFFFF">
 
-</LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <!-- Name row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="16dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical"
+                        android:layout_marginEnd="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="First Name"
+                            android:textSize="13sp"
+                            android:textColor="#374151"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="6dp" />
+
+                        <EditText
+                            android:id="@+id/etName"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:hint="John"
+                            android:background="@drawable/spinner_field_bg"
+                            android:paddingHorizontal="14dp"
+                            android:textColor="#111827"
+                            android:textColorHint="#9CA3AF"
+                            android:textSize="15sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Last Name"
+                            android:textSize="13sp"
+                            android:textColor="#374151"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="6dp" />
+
+                        <EditText
+                            android:id="@+id/etSurname"
+                            android:layout_width="match_parent"
+                            android:layout_height="52dp"
+                            android:hint="Doe"
+                            android:background="@drawable/spinner_field_bg"
+                            android:paddingHorizontal="14dp"
+                            android:textColor="#111827"
+                            android:textColorHint="#9CA3AF"
+                            android:textSize="15sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Email -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Email"
+                    android:textSize="13sp"
+                    android:textColor="#374151"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="6dp" />
+
+                <EditText
+                    android:id="@+id/etEmail"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:hint="you@example.com"
+                    android:inputType="textEmailAddress"
+                    android:background="@drawable/spinner_field_bg"
+                    android:paddingHorizontal="14dp"
+                    android:textColor="#111827"
+                    android:textColorHint="#9CA3AF"
+                    android:textSize="15sp"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Password -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Password"
+                    android:textSize="13sp"
+                    android:textColor="#374151"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="6dp" />
+
+                <EditText
+                    android:id="@+id/etPassword"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:hint="Min. 8 chars, uppercase, digit"
+                    android:inputType="textPassword"
+                    android:background="@drawable/spinner_field_bg"
+                    android:paddingHorizontal="14dp"
+                    android:textColor="#111827"
+                    android:textColorHint="#9CA3AF"
+                    android:textSize="15sp"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="At least 8 characters with uppercase letter and number"
+                    android:textSize="11sp"
+                    android:textColor="#9CA3AF"
+                    android:layout_marginBottom="24dp" />
+
+                <!-- Register button -->
+                <Button
+                    android:id="@+id/btnRegister"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="Create Account"
+                    android:textAllCaps="false"
+                    android:textSize="16sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#2563EB" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Login link -->
+        <Button
+            android:id="@+id/btnGoLogin"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Already have an account? Sign In"
+            android:textAllCaps="false"
+            android:textSize="14sp"
+            android:textColor="#2563EB"
+            android:backgroundTint="@android:color/transparent"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="24dp" />
+
+    </LinearLayout>
+</ScrollView>

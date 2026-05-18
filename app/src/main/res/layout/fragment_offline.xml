@@ -1,43 +1,117 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
-    android:padding="24dp">
+    android:background="#F0F4F8"
+    android:fillViewport="true">
 
-    <!-- Question: Where do you live? -->
-    <TextView
-        android:id="@+id/tvWhereQuestion"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Where do you live?"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp"/>
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:padding="24dp">
 
-    <!-- Country Spinner -->
-    <Spinner
-        android:id="@+id/spinnerCountry"
-        android:layout_width="200dp"
-        android:layout_height="wrap_content"/>
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingTop="48dp"
+            android:paddingBottom="36dp">
 
-    <!-- City Spinner -->
-    <Spinner
-        android:id="@+id/spinnerCity"
-        android:layout_width="200dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"/>
+            <TextView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:text="📍"
+                android:textSize="44sp"
+                android:gravity="center"
+                android:background="@drawable/chip_teach_bg"
+                android:layout_marginBottom="16dp" />
 
-    <!-- Next Button -->
-    <Button
-        android:id="@+id/btnNext"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Next"
-        android:layout_gravity="end"
-        android:layout_marginTop="40dp"
-        android:layout_marginEnd="24dp"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Where are you located?"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#111827"
+                android:gravity="center" />
 
-</LinearLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="We'll find partners in your city"
+                android:textSize="14sp"
+                android:textColor="#6B7280"
+                android:gravity="center"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+
+        <!-- Card -->
+        <androidx.cardview.widget.CardView
+            xmlns:app="http://schemas.android.com/apk/res-auto"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="4dp"
+            app:cardBackgroundColor="#FFFFFF">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <!-- Country -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🌍  Country"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#111827"
+                    android:layout_marginBottom="8dp" />
+
+                <Spinner
+                    android:id="@+id/spinnerCountry"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:background="@drawable/spinner_field_bg"
+                    android:layout_marginBottom="20dp" />
+
+                <!-- City -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🏙️  City"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#111827"
+                    android:layout_marginBottom="8dp" />
+
+                <Spinner
+                    android:id="@+id/spinnerCity"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:background="@drawable/spinner_field_bg"
+                    android:layout_marginBottom="8dp" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Next button -->
+        <Button
+            android:id="@+id/btnNext"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="24dp"
+            android:text="Continue →"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#2563EB" />
+
+    </LinearLayout>
+</ScrollView>
