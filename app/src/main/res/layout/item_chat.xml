@@ -2,16 +2,75 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="12dp"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:gravity="center_vertical"
     android:background="?android:attr/selectableItemBackground">
 
-    <TextView
-        android:id="@+id/tvChatName"
-        android:layout_width="match_parent"
+    <!-- Аватарка -->
+    <ImageView
+        android:id="@+id/ivAvatar"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:scaleType="centerCrop"
+        android:background="@drawable/avatar_placeholder_bg"
+        android:src="@android:drawable/ic_menu_myplaces"
+        android:padding="12dp"
+        android:layout_marginEnd="14dp" />
+
+    <!-- Имя + последнее сообщение -->
+    <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Chat name"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:padding="8dp"/>
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvChatName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#111827"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/tvLastMessage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="#6B7280"
+            android:layout_marginTop="2dp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
+
+    <!-- Время + непрочитанные -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="end">
+
+        <TextView
+            android:id="@+id/tvTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="11sp"
+            android:textColor="#9CA3AF"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/tvUnreadCount"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:gravity="center"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:background="@drawable/chip_study_bg"
+            android:visibility="gone" />
+    </LinearLayout>
+
 </LinearLayout>
