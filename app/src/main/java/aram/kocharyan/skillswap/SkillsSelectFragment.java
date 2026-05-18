@@ -16,15 +16,12 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 public class SkillsSelectFragment extends Fragment {
 
-    private TextView tvTeachSelected, tvStudySelected;
+    private TextView tvTeachSelected, tvStudySelected, tvLanguageSelected;
     private Button btnLangRu, btnLangEn, btnLangHy, btnNext;
 
     private String selectedTeach    = null;
     private String selectedStudy    = null;
     private String selectedLanguage = null;
-
-    private static final String COLOR_SELECTED   = "#2196F3";
-    private static final String COLOR_UNSELECTED = "#F0F0F0";
 
     private final String[] skills = {
             "Mathematics Grade 1", "Mathematics Grade 2", "Mathematics Grade 3",
@@ -57,16 +54,17 @@ public class SkillsSelectFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+
         View view = inflater.inflate(R.layout.fragment_skills_select, container, false);
 
-        tvTeachSelected = view.findViewById(R.id.tvTeachSelected);
-        tvStudySelected = view.findViewById(R.id.tvStudySelected);
-        btnLangRu       = view.findViewById(R.id.btnLangRu);
-        btnLangEn       = view.findViewById(R.id.btnLangEn);
-        btnLangHy       = view.findViewById(R.id.btnLangHy);
-        btnNext         = view.findViewById(R.id.btnNext);
+        tvTeachSelected    = view.findViewById(R.id.tvTeachSelected);
+        tvStudySelected    = view.findViewById(R.id.tvStudySelected);
+        btnLangRu          = view.findViewById(R.id.btnLangRu);
+        btnLangEn          = view.findViewById(R.id.btnLangEn);
+        btnLangHy          = view.findViewById(R.id.btnLangHy);
+        btnNext            = view.findViewById(R.id.btnNext);
 
-        // Tap to select — открывает диалог
+        // Tap to select — AlertDialog
         tvTeachSelected.setOnClickListener(v ->
                 new AlertDialog.Builder(requireContext())
                         .setTitle("What can you teach?")
@@ -74,8 +72,7 @@ public class SkillsSelectFragment extends Fragment {
                             selectedTeach = skills[which];
                             tvTeachSelected.setText(selectedTeach);
                             tvTeachSelected.setTextColor(0xFF111111);
-                        })
-                        .show());
+                        }).show());
 
         tvStudySelected.setOnClickListener(v ->
                 new AlertDialog.Builder(requireContext())
@@ -84,15 +81,13 @@ public class SkillsSelectFragment extends Fragment {
                             selectedStudy = skills[which];
                             tvStudySelected.setText(selectedStudy);
                             tvStudySelected.setTextColor(0xFF111111);
-                        })
-                        .show());
+                        }).show());
 
-        // Кнопки языка
-        btnLangRu.setOnClickListener(v -> selectLanguage("Russian",  btnLangRu));
-        btnLangEn.setOnClickListener(v -> selectLanguage("English",  btnLangEn));
-        btnLangHy.setOnClickListener(v -> selectLanguage("Armenian", btnLangHy));
+        // Language buttons
+        btnLangRu.setOnClickListener(v -> selectLanguage("Russian"));
+        btnLangEn.setOnClickListener(v -> selectLanguage("English"));
+        btnLangHy.setOnClickListener(v -> selectLanguage("Armenian"));
 
-        // Кнопка Next
         btnNext.setOnClickListener(v -> {
             if (selectedTeach == null) {
                 Toast.makeText(requireContext(), "Please select what you can teach", Toast.LENGTH_SHORT).show();
@@ -135,21 +130,31 @@ public class SkillsSelectFragment extends Fragment {
         return view;
     }
 
-    private void selectLanguage(String language, Button selected) {
+    private void selectLanguage(String language) {
         selectedLanguage = language;
-        // Сброс всех кнопок
-        resetLangButton(btnLangRu);
-        resetLangButton(btnLangEn);
-        resetLangButton(btnLangHy);
-        // Выделить выбранную
-        selected.setBackgroundTintList(
-                android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#2196F3")));
-        selected.setTextColor(android.graphics.Color.WHITE);
+        resetLangBtn(btnLangRu);
+        resetLangBtn(btnLangEn);
+        resetLangBtn(btnLangHy);
+
+        Button selected = null;
+        switch (language) {
+            case "Russian":  selected = btnLangRu; break;
+            case "English":  selected = btnLangEn; break;
+            case "Armenian": selected = btnLangHy; break;
+        }
+        if (selected != null) {
+            selected.setBackgroundTintList(
+                    android.content.res.ColorStateList.valueOf(
+                            android.graphics.Color.parseColor("#2563EB")));
+            selected.setTextColor(android.graphics.Color.WHITE);
+        }
     }
 
-    private void resetLangButton(Button btn) {
+    private void resetLangBtn(Button btn) {
+        if (btn == null) return;
         btn.setBackgroundTintList(
-                android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#F0F0F0")));
+                android.content.res.ColorStateList.valueOf(
+                        android.graphics.Color.parseColor("#F0F0F0")));
         btn.setTextColor(android.graphics.Color.parseColor("#555555"));
     }
 }

@@ -3,79 +3,109 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:background="#F0F4F8">
 
-    <!-- Верхняя строка: Chat + кнопка видеозвонка справа -->
+    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:orientation="vertical"
+        android:background="#FFFFFF"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="16dp"
+        android:elevation="2dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Chat"
-            android:textSize="24sp"
-            android:textStyle="bold"/>
+            android:text="Messages"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:textColor="#111827" />
 
-        <Space
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"/>
-
-        <Button
-            android:id="@+id/btnVideoCall"
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="🎥 Video Call"
-            android:backgroundTint="#00BFA5"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:visibility="gone"/>
+            android:text="Your chats and requests"
+            android:textSize="14sp"
+            android:textColor="#6B7280"
+            android:layout_marginTop="2dp" />
     </LinearLayout>
 
-    <!-- Заголовок входящих запросов -->
-    <TextView
+    <!-- Scroll content -->
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Chat Requests"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="8dp"/>
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
-    <!-- Список входящих запросов -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerRequests"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"/>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="24dp">
 
-    <TextView
-        android:id="@+id/tvNoRequests"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="No pending requests"
-        android:textSize="16sp"
-        android:gravity="center"
-        android:layout_gravity="center"
-        android:layout_marginTop="40dp"
-        android:visibility="gone"/>
+            <!-- ── Chat Requests ── -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Requests"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#374151"
+                android:paddingHorizontal="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="8dp" />
 
-    <!-- ====== Список активных чатов ====== -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Active Chats"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:layout_marginTop="24dp"
-        android:layout_marginBottom="8dp"/>
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerRequests"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerChats"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"/>
+            <TextView
+                android:id="@+id/tvNoRequests"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No pending requests"
+                android:textSize="14sp"
+                android:textColor="#9CA3AF"
+                android:gravity="center"
+                android:paddingVertical="12dp"
+                android:paddingHorizontal="20dp"
+                android:visibility="gone" />
+
+            <!-- ── Active Chats ── -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Active Chats"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#374151"
+                android:paddingHorizontal="20dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="8dp" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerChats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:background="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/tvNoChats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No active chats yet"
+                android:textSize="14sp"
+                android:textColor="#9CA3AF"
+                android:gravity="center"
+                android:paddingVertical="16dp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+    </ScrollView>
+
 </LinearLayout>
