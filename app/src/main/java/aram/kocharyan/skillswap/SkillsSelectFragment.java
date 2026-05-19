@@ -1,12 +1,12 @@
 package aram.kocharyan.skillswap;
 
-import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.TextView;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
@@ -16,11 +16,9 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 public class SkillsSelectFragment extends Fragment {
 
-    private TextView tvTeachSelected, tvStudySelected, tvLanguageSelected;
+    // Оригинальные Spinner — как было в старом коде
+    private Spinner spTeach, spStudy;
     private Button btnLangRu, btnLangEn, btnLangHy, btnNext;
-
-    private String selectedTeach    = null;
-    private String selectedStudy    = null;
     private String selectedLanguage = null;
 
     private final String[] skills = {
@@ -57,52 +55,39 @@ public class SkillsSelectFragment extends Fragment {
 
         View view = inflater.inflate(R.layout.fragment_skills_select, container, false);
 
-        tvTeachSelected    = view.findViewById(R.id.tvTeachSelected);
-        tvStudySelected    = view.findViewById(R.id.tvStudySelected);
-        btnLangRu          = view.findViewById(R.id.btnLangRu);
-        btnLangEn          = view.findViewById(R.id.btnLangEn);
-        btnLangHy          = view.findViewById(R.id.btnLangHy);
-        btnNext            = view.findViewById(R.id.btnNext);
+        // Те же ID что были в оригинале
+        spTeach   = view.findViewById(R.id.spTeach);
+        spStudy   = view.findViewById(R.id.spStudy);
+        btnLangRu = view.findViewById(R.id.btnLangRu);
+        btnLangEn = view.findViewById(R.id.btnLangEn);
+        btnLangHy = view.findViewById(R.id.btnLangHy);
+        btnNext   = view.findViewById(R.id.btnNext);
 
-        // Tap to select — AlertDialog
-        tvTeachSelected.setOnClickListener(v ->
-                new AlertDialog.Builder(requireContext())
-                        .setTitle("What can you teach?")
-                        .setItems(skills, (d, which) -> {
-                            selectedTeach = skills[which];
-                            tvTeachSelected.setText(selectedTeach);
-                            tvTeachSelected.setTextColor(0xFF111111);
-                        }).show());
+        // Адаптер для спиннеров — как в оригинале
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_spinner_dropdown_item, skills);
+        spTeach.setAdapter(adapter);
+        spStudy.setAdapter(adapter);
 
-        tvStudySelected.setOnClickListener(v ->
-                new AlertDialog.Builder(requireContext())
-                        .setTitle("What do you want to study?")
-                        .setItems(skills, (d, which) -> {
-                            selectedStudy = skills[which];
-                            tvStudySelected.setText(selectedStudy);
-                            tvStudySelected.setTextColor(0xFF111111);
-                        }).show());
-
-        // Language buttons
+        // Кнопки языка
         btnLangRu.setOnClickListener(v -> selectLanguage("Russian"));
         btnLangEn.setOnClickListener(v -> selectLanguage("English"));
         btnLangHy.setOnClickListener(v -> selectLanguage("Armenian"));
 
+        // Кнопка Next — логика как в оригинале + язык
         btnNext.setOnClickListener(v -> {
-            if (selectedTeach == null) {
-                Toast.makeText(requireContext(), "Please select what you can teach", Toast.LENGTH_SHORT).show();
+            String teach = spTeach.getSelectedItem().toString();
+            String study = spStudy.getSelectedItem().toString();
+
+            if (teach.equals(study)) {
+                Toast.makeText(requireContext(),
+                        "You cannot select the same skill for both.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (selectedStudy == null) {
-                Toast.makeText(requireContext(), "Please select what you want to study", Toast.LENGTH_SHORT).show();
-                return;
-            }
+
             if (selectedLanguage == null) {
-                Toast.makeText(requireContext(), "Please select language of instruction", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (selectedTeach.equals(selectedStudy)) {
-                Toast.makeText(requireContext(), "You cannot select the same skill for both", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(),
+                        "Please select language of instruction", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -110,8 +95,8 @@ public class SkillsSelectFragment extends Fragment {
             FirebaseFirestore db = FirebaseFirestore.getInstance();
 
             db.collection("Users").document(userId)
-                    .update("skillTeach", selectedTeach,
-                            "skillStudy",  selectedStudy,
+                    .update("skillTeach", teach,
+                            "skillStudy",  study,
                             "language",    selectedLanguage)
                     .addOnSuccessListener(aVoid -> {
                         Toast.makeText(requireContext(), "Skills saved ✅", Toast.LENGTH_SHORT).show();
@@ -154,7 +139,7 @@ public class SkillsSelectFragment extends Fragment {
         if (btn == null) return;
         btn.setBackgroundTintList(
                 android.content.res.ColorStateList.valueOf(
-                        android.graphics.Color.parseColor("#F0F0F0")));
-        btn.setTextColor(android.graphics.Color.parseColor("#555555"));
+                        android.graphics.Color.parseColor("#F3F4F6")));
+        btn.setTextColor(android.graphics.Color.parseColor("#374151"));
     }
 }

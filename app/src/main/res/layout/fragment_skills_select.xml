@@ -3,7 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="#F0F4F8">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -12,13 +12,14 @@
         android:padding="24dp"
         android:gravity="center_horizontal">
 
+        <!-- Header -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Set Up Your Skills"
             android:textSize="26sp"
             android:textStyle="bold"
-            android:textColor="#111111"
+            android:textColor="#111827"
             android:layout_marginBottom="6dp" />
 
         <TextView
@@ -26,10 +27,10 @@
             android:layout_height="wrap_content"
             android:text="Tell us what you can teach and want to learn"
             android:textSize="14sp"
-            android:textColor="#555555"
+            android:textColor="#6B7280"
             android:layout_marginBottom="28dp" />
 
-        <!-- Карточка 1: Teach -->
+        <!-- Card 1: Teach -->
         <androidx.cardview.widget.CardView
             xmlns:app="http://schemas.android.com/apk/res-auto"
             android:layout_width="match_parent"
@@ -51,24 +52,19 @@
                     android:text="📚  What can you teach?"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="#111111"
+                    android:textColor="#111827"
                     android:layout_marginBottom="10dp" />
 
-                <TextView
-                    android:id="@+id/tvTeachSelected"
+                <!-- Оригинальный ID сохранён! -->
+                <Spinner
+                    android:id="@+id/spTeach"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
-                    android:gravity="center_vertical"
-                    android:paddingStart="14dp"
-                    android:paddingEnd="14dp"
-                    android:text="Tap to select..."
-                    android:textColor="#444444"
-                    android:textSize="15sp"
                     android:background="@drawable/spinner_field_bg" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- Карточка 2: Study -->
+        <!-- Card 2: Study -->
         <androidx.cardview.widget.CardView
             xmlns:app="http://schemas.android.com/apk/res-auto"
             android:layout_width="match_parent"
@@ -90,24 +86,19 @@
                     android:text="🎓  What do you want to study?"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="#111111"
+                    android:textColor="#111827"
                     android:layout_marginBottom="10dp" />
 
-                <TextView
-                    android:id="@+id/tvStudySelected"
+                <!-- Оригинальный ID сохранён! -->
+                <Spinner
+                    android:id="@+id/spStudy"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
-                    android:gravity="center_vertical"
-                    android:paddingStart="14dp"
-                    android:paddingEnd="14dp"
-                    android:text="Tap to select..."
-                    android:textColor="#444444"
-                    android:textSize="15sp"
                     android:background="@drawable/spinner_field_bg" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- Карточка 3: Language -->
+        <!-- Card 3: Language -->
         <androidx.cardview.widget.CardView
             xmlns:app="http://schemas.android.com/apk/res-auto"
             android:layout_width="match_parent"
@@ -129,18 +120,17 @@
                     android:text="🌐  Language of instruction"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="#111111"
-                    android:layout_marginBottom="6dp" />
+                    android:textColor="#111827"
+                    android:layout_marginBottom="4dp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="The language you and your partner will use"
                     android:textSize="12sp"
-                    android:textColor="#888888"
-                    android:layout_marginBottom="10dp" />
+                    android:textColor="#9CA3AF"
+                    android:layout_marginBottom="12dp" />
 
-                <!-- 3 кнопки языка -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -149,39 +139,38 @@
                     <Button
                         android:id="@+id/btnLangRu"
                         android:layout_width="0dp"
-                        android:layout_height="48dp"
+                        android:layout_height="44dp"
                         android:layout_weight="1"
                         android:layout_marginEnd="6dp"
                         android:text="🇷🇺 Russian"
                         android:textAllCaps="false"
                         android:textSize="13sp"
-                        android:textColor="#555555"
-                        android:backgroundTint="#F0F0F0" />
+                        android:textColor="#374151"
+                        android:backgroundTint="#F3F4F6" />
 
                     <Button
                         android:id="@+id/btnLangEn"
                         android:layout_width="0dp"
-                        android:layout_height="48dp"
+                        android:layout_height="44dp"
                         android:layout_weight="1"
                         android:layout_marginEnd="6dp"
                         android:text="🇬🇧 English"
                         android:textAllCaps="false"
                         android:textSize="13sp"
-                        android:textColor="#555555"
-                        android:backgroundTint="#F0F0F0" />
+                        android:textColor="#374151"
+                        android:backgroundTint="#F3F4F6" />
 
                     <Button
                         android:id="@+id/btnLangHy"
                         android:layout_width="0dp"
-                        android:layout_height="48dp"
+                        android:layout_height="44dp"
                         android:layout_weight="1"
                         android:text="🇦🇲 Armenian"
                         android:textAllCaps="false"
                         android:textSize="13sp"
-                        android:textColor="#555555"
-                        android:backgroundTint="#F0F0F0" />
+                        android:textColor="#374151"
+                        android:backgroundTint="#F3F4F6" />
                 </LinearLayout>
-
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
@@ -193,7 +182,7 @@
             android:textAllCaps="false"
             android:textSize="17sp"
             android:textColor="#FFFFFF"
-            android:backgroundTint="#2196F3" />
+            android:backgroundTint="#2563EB" />
 
     </LinearLayout>
 </ScrollView>
